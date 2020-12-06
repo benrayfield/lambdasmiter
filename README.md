@@ -10,6 +10,10 @@ funcallPlugins.matmul = (vm, aFuncall)->{ throw 'TODO' };
 
 funcallPlugins.concat = (vm, aFuncall)->{ throw 'TODO' };
 
+//TODO write a function of any byte[] of webasm code to another byte[] of webasm code which decrements a "gas" counter every step and returns early if its 0,'
+//especially with the optimization of checking then subtracting n to the counter before n steps or n * m for 2 inner loops of size n and m etc.
+//It should be (in theory, todo verify theory and test) guaranteed that no possible 2 lambdas one called on the other, even in plugins,
+//can use more gas than allocated. This of course comes at a cost of efficiency, but cpu code takes the biggest loss, while gpu code in some cases runs equally fast.
 funcallPlugins.webasm = (vm, aFuncall)->{ throw 'TODO' };
 
 //todo copy my experimental music tools code here which stores opcodes in int (2 uint12 pointers up to double[4096]
