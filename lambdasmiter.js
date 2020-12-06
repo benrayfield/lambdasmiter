@@ -1,4 +1,8 @@
 //TODO create it all in a single var (or const) called lambdasmiter which is itself contained in a (...) like... (and its the only thing in the js file)...
+//TODO should lambdasmiter be a factory, of 0 params, so you can generate a new one for each testcase of it (but otherwise you'd only want 1).
+//TODO should lambdasmiter take a param of funcallPlugins, and no further plugins are allowed after that?
+//Plugins may have stateful optimizations such as GPU.js maybe has cache of compiled gpu code etc?
+//Maybe should just stick to the 1 lambdasmiter, which is the VM with stateful memory and compute cycle stats, inside of which theres a stateless universalFunc.
 const lambdasmiter = ((function(){
 	this.description = "lambdasmiter - Like hitting the halting-problem with Thor's hammer, it smites infinite loops etc 1 million times faster than the competition. Get creative. Have fun. Build things together, defended by lambdasmiter so your browser tab cant crash even if you try to run an infinite loop etc. Can in theory smite through 100,000 infinite loops per second (compared to the usual 0 to 0.1 per second) then get back to your cat memes and multiplayer gaming experiments without missing a step, without delaying the next video frame of the game, without your mouse or text cursor feeling jumpy, and especially for AI experiments where AIs write experimental code to create new AIs and people and AIs play and build together and share lambdas across the internet similar to how most apps share byte streams, except the lambda, not the byte, is the unit of computing here. Its a workaround for the halting problem which smites any lambda call reliably when its about to, or sometimes can be known that it would later, use more memory or compute cycles etc than its allocated thousands per second of such recursive limits within limits per stack height, in a subset of pure functional browser javascript with GPU optimizations and gaming low lag canvas pixels and game controllers and textareas and p2p etc, and whole or sparse system state (stateless lambdas, including Float64Array, in lazy merkle forest) is saveable and loadable in byte arrays, and random or malicious or just fun experimental code shared across the internet can be run safely together in a tiny fraction of a second.";
 	this.authors = ['BenFRayfield'];
@@ -17,7 +21,7 @@ const lambdasmiter = ((function(){
 	//using a "free market trading ratio" between memory and compute cycles etc, like at some time it might cost 5.3 units of gas per bit of memory
 	//and 1 unit of gas per compute cycle, by varying that ratio by how much is available at the time. Similar for the resource of compiling GPU.js code etc.
 
-	//bits of memory allowed to be allocated by Eval, excluding any memory that COULD be garbcoled (garbage collected) by javascript even if it hasnt yet.
+	//bits of memory allowed to be allocated by Eval, including any memory that COULD be garbcoled (garbage collected) by javascript even if it hasnt yet.
 	//This number is chosen arbitrarily to start to allocate some constant amount of memory to the system, regardless of how much memory is actually available to javascript.
 	this.memAvail = 100*1000*1000*8;
 	this.memUsed = 0;
@@ -46,9 +50,9 @@ const lambdasmiter = ((function(){
 //except there are many other interesting kinds of turingComplete patterns that are at least as interesting as current games, in theory, so a different niche.
 //Similar to occamsfuncer but less strict, less repeatable, but in theory still defends a browser tab from infiniteloops etc recursively
 //which as far as I know currently (2020-12+) goes completely undefended (ending at the borders of the browser tab, even if iframes inside them attack them by infiniteloop)
-//other than trying to build of trust among those who might attack that which is undefended.
+//other than trying to accumulate trust among those who might attack that which is undefended (or nearly undefended as 10 seconds after a browser tab crashes you can close it).
 //While occamsfuncer etc may be far more expensive a calculation than its worth for most things (but not all, it will have niche(s)),
-//this is something near any website might be improved by...
+//this is something near any website might be improved by, at least small parts of that website, or some websites could be made completely of this...
 
 //The model of computing is... Imagine a stack as a vertical line from below, and at the top theres a horizontal line representing the heap,
 //and on the heap are Float64Array objects used as immutable, and downward from that are immutable pairs of [pair or Float64Array],
@@ -347,8 +351,8 @@ Also copy some of my music tools code in ported to WebAudioAPI's ScriptNode desp
 (delay of user input to cpu then computed about then to the sound heard, even though its high quality sound when it gets to your ears)...
 could at least give people a taste of that kind of thing then could sometimes hook into sever for native access to sound hardware and while still
 using mouse and keyboard and game controllers in webcam etc... could have low lag sound if that server is on your computer which has those speakers microphones etc.
-Can make the sound low lag even in browser if also running local server, but want it to work for first few minutes at least in server, to show people what it can do.
-From there can get more gpu efficiency etc.
+Can make the sound low lag even in browser if also running local server, but want it to work for first few minutes at least in only browser, to show people what it can do.
+From there can get more gpu efficiency etc if user chooses to upgrade to various opensource native plugins.
 
 
 TODO the library will only be useful if it has sandboxed ops that do atomic pieces of efficient computing, like matrix multiply, concat, treemap get, treemap put, etc.
