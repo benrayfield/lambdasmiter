@@ -38,6 +38,7 @@ fn
 	j = cons('this is a snapshot of x')(snapshotOfX)
 	getSnapshotOfX = R(j) //FIXME where did R come from? theres no namespaces here except within local stack frame (whats in fn)
 ```
+It seems very similar to python but I'd like to see it compiled to a 50kB executable file instead of megabytes, and more importantly no existing language seems to guarantee that no possible calculation can infinite loop etc, and in this system, a namespace exists only within a stack frame, not visible below or above it on the stack, and is just a convenient way to refer to pointers onto stack.
 
 
 TODO define the "standard functions" that happen in funcall(funcallNode,funcallNode) in this mutable plugins map...
