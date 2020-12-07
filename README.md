@@ -6,15 +6,15 @@ const funcallPlugins = {};
 
 //todo include another matmul in its own js file that includes GPU*.js or inlines that and at the end overwrites funcallPlugins.matmul,
 //but until thats loaded, there will be a slower implementation of it here (TODO).
-funcallPlugins.matmul = (vm, aFuncall)->{ throw 'TODO' };
+funcallPlugins.matmul = (vm, aFuncall)=>{ throw 'TODO' };
 
-funcallPlugins.concat = (vm, aFuncall)->{ throw 'TODO' };
+funcallPlugins.concat = (vm, aFuncall)=>{ throw 'TODO' };
 
 //TODO write a function of any byte[] of webasm code to another byte[] of webasm code which decrements a "gas" counter every step and returns early if its 0,'
 //especially with the optimization of checking then subtracting n to the counter before n steps or n * m for 2 inner loops of size n and m etc.
 //It should be (in theory, todo verify theory and test) guaranteed that no possible 2 lambdas one called on the other, even in plugins,
 //can use more gas than allocated. This of course comes at a cost of efficiency, but cpu code takes the biggest loss, while gpu code in some cases runs equally fast.
-funcallPlugins.webasm = (vm, aFuncall)->{ throw 'TODO' };
+funcallPlugins.webasm = (vm, aFuncall)=>{ throw 'TODO' };
 
 //todo copy my experimental music tools code here which stores opcodes in int (2 uint12 pointers up to double[4096]
 //and 1 uint8 opcode choosing multiply, plus, negate, sine, tanh, etc) which each are a (double,double)->double op in a binary forest,
@@ -22,4 +22,4 @@ funcallPlugins.webasm = (vm, aFuncall)->{ throw 'TODO' };
 //and can in theory read microphone holes (such as an electric guitar plugged into one, an EEG electrode plugged into the other, etc)
 //and write speakers in WebAudioAPI or (if user hooks it in) a local server running JSoundCard
 //for lower lag (especially low lag in linux, which is the only way it would be fast enough for a professional musician to want to use it in a live show).
-funcallPlugins.acyclicflow = (vm, aFuncall)->{ throw 'TODO' };
+funcallPlugins.acyclicflow = (vm, aFuncall)=>{ throw 'TODO' };
