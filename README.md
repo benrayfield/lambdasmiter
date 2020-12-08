@@ -15,6 +15,7 @@ Can in theory smite through 100,000 infinite loops per second (compared to the u
 
 UPDATE 2020-12-7: am considering defining purefunctional controlflow by direct access to emulated stackPointer (sp) and instructionPointer (ip), where a node is either a Float64Array or float64 or pair of nodes (every function and data has that form), something like this... and keep in mind that each position in memory can be either a double or a pointer at a node and can call lambdas on eachother right beside assembly-like code, which in theory should never be able to have an infinite loop etc cuz every such opcode/smallpieceofhumanreadablecode automatically decrements and checks for gas>=minGas would still be true if it did this thing...
 ```
+//Every time you see a an address (such as a variable name x or (x+2) = ..., it normally refers to an index in a double[] or some more sparse datastruct for bigger spaces
 fn
 	x = sp++
 	y = sp++
