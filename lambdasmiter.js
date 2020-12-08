@@ -29,6 +29,417 @@ const lambdasmiter = ((function(){
 	
 })());
 
+
+
+
+
+
+
+TODO define the way of importing plugins...
+Plugins are each a funcallNode containing a string of code (starting with "javascript:" or any language, but just javascript for now)
+of a function, but only those the VM trusts can run,
+such as containing the code string of GPU.js, but WebAudioAPI cant be in a plugin since plugins do not write to the outside world,
+but since it is planned to use WebAudioAPI, define an IOPlugin as a separate kind of thing than an InternalPlugin.
+IOPlugins cant be called by lambdas but can call lambdas and use their return values.
+IOPlugins would include htmlCanvas, WebAudioAPI, reading mouse position, networking, etc.
+A InternalPlugin is an atomic op, a function of funcallNode to funcallNode (which each may be a vararg call), within memory and computeCycles etc limits.
+Controlflow other than plugins starts with the basics of SKI_Calculus similar to occamsfuncer, iota, unlambda, etc.
+Since an InternalPlugin is an atomic op, it cant call any other plugins or functions.
+
+
+TODO is there a way to still prove memory and computecycle limits if an InternalPlugin can call lambdas (such as other InternalPlugins),
+which would be useful for defining many times faster kinds of controlflow such as new syntaxs of loops without having to use so much SKI_CALCULUS between plugins???
+No, it cant be done for plugins that compute in mutable ways inside the atomic op that is themself, like wrapping a string of js code or webasm etc,
+those are mutable calculations, but yes if the plugin is made of immutable parts but then its not much use to be a plugin as it would be very slow probably.
+
+
+Maybe should use callquads (see occamsfuncer) but still having Float64Array as leafs (instead of occamsfuncer having only 1 leaf which all paths lead to)
+and include an equals function (instead of occamsfuncer derived equals using simpler ops including to get the left child, right child, and check if param is the leaf or not.
+With callquads, there is no stack, only heap, as the 2 extra childs per node are pieces of stack and cacheKey.
+Would need to choose which ops to do on Float64Arrays and small binforests containing them as (node,node)->node where node is either a Float64Array or a pair of nodes.
+Choosing which ops, is confusing me.
+
+
+
+Could all the ops (other than callquad, ski_calculus, etc) be done by webasm+webgpu? Whatever it is, has to work in browser javascript without browser plugins.
+2020-12-7[
+https://en.wikipedia.org/wiki/WebGPU#Implementation
+"Both Chrome and Firefox support WebGPU with SPIR-V, with work ongoing for the WGSL front-end. Safari supports WebGPU with WSL."
+but that doesnt appear to be true at https://webkit.org/demos/webgpu/
+https://tvm.apache.org/2020/05/14/compiling-machine-learning-to-webassembly-and-webgpu
+]
+
+
+Yes, do use callquads. TODO.
+
+
+If start with only webasm (add GPU.js etc later), that would be enough to make the mandelbrot/julia fractals you can play with using the mouse,
+a fun proofOfConcept, and could forkEdit it. Webasm would only be used on Float64Array->Float64Array
+which would contain the code and data somewhere, which could be built by ski_calculus with a concat function etc.
+But not just any Float64Array would be allowed as it has to be both valid webasm and count down the gas at Float64Array[0].
+
+Or could start with just evalling strings of js, but only those generated in a way that proves they count down a gas var and end if its 0
+and dont allocate any memory.
+
+
+Or start with just the dataStructure of (a node is either a Float64Array or a pair of nodes)
+and write a function that checks if a string of js code is a function(node)->node that obeys the gas limit
+by only allocating new node using a certain function, not calling any other functions except the nodes themselves
+(which may contain such strings of other js code and its compiled form cached), etc?
+That could do "mandelbrot/julia fractals you can play with using the mouse".
+Before every line of code, it could call pay(1) which would throw if not have enough to pay that,
+or harder to detect but before n lines of code pay(n) instead of that, or before a double loop pay(x*y) etc.
+Start with pay(1).
+..
+Since the js code is verified, it can use the js stack (not callquad, just pairs and arrays),
+it can call other such js code (in the array of a node, with cached compiled form) before it returns,
+and it can allocate Float64Array and modify it BEFORE its returned but after that its frozen,
+so any Float64Array from the js code it calls is already frozen when it sees it.
+
+Maybe use string instead of Float64Array, to get started, as its already immutable and can be used as uint16s
+which are enough for sound amplitudes and 15 bit canvas color.
+So a node is either a string or a pair of node? No, the conversion in js is expensive. Use Float64Array.
+
+(todo write shorter names of these)
+x(y) would call x on y, whatever js code may be in x.
+cons(x,y) would pay for that pair's new memory.
+pay() would pay 1.
+calloc(numDoubles) would allocate a mutable Float64Array, viewed as frozen after its returned.
+verifyCode(node) returns 1 or 0 depending if its a Float64Array of string of valid js code and valid within these rules.
+spend(maxGas,lazyCall) returns lazyCall(0) if it costs at most maxGas, else returns 0 (todo or throws?).
+or spend(maxGas,x,y) returns x(y) if has enough gas.
+and how to limit the stack depth?
+wallet() returns gas-minGas aka the amount of gas available here.
+A mutable Float64Array can only go in a varName with a certain prefix, like mut_abc = calloc(numDoubles),
+and similar for other mutable vars. Anything returned from an x(y) can go in a var that implies immutable like abc.
+...
+Or simpler, dont use any javascript statements at all like x = y+z, and instead do it all as functions that pay gas etc,
+like...
+loop(x,loop(...),z) for some meaning of x and z, but having var names there seems like it could cause a problem.
+Like such function calls define a stack frame, but I want the efficiency of how js uses mutable vars with Float64Array that it allocates inside that stack frame.
+mapGet(x,y) x(y) so dont realy need mapGet just use x(y).
+mapPut(x,y,z) forkedited x with x(y)->z
+...
+stackFrame(...what goes here?...) would be a call that returns a node, and uses the efficiency of js looping
+and mutably using a Float64Array etc inside the stackframe but not after it returns.
+
+
+
+
+No function should take more than 1 param. Like stackframe(x)(y)(z) instead of stackFrame(x,y,z),
+and like spend(12000)(stackFrame(x)(y))(z) runs stackFrame(x)(y)(z) with at most 12000 gas cost.
+L(stackFrame(x)(y))->stackFrame(x)
+R(stackFrame(x)(y))->y
+L(z)(R(z))->z for any z, for small constant gas cost which may of course run out of gas so not return z, but IF it returns then its z.
+
+U = theUniversalFunction, which can define different opcodes than in occamsfuncer especially to include an opcode that can do the
+mutable looping while modifying a Float64Array or combos of multiple such vars in a stackFrame then returning an immutable result,
+where a node is either a Float64Array or pair of nodes.
+
+Display similar to SExpressions (sexp).
+
+Its still true that infinite loops etc are not possible in this system if the VM itself is not buggy,
+and it can do anything a turingComplete system can do except within limits of memory and computeCycles.
+
+Whats most confusing me right now is what function should stackFrame be?
+What kinds of things are normally in a js stack frame and would look like human readable code?
+
+That js stack frame is all I need to get the mandelbrot/julia canvas reacting to mouse movements in realtime,
+which is a demo I already have working using plain js code but want to port it to this system.
+
+
+stackFrame...
+Include only WHILE loops which check if a certain var is nonnull/nonzero/etc cuz they're simplest (at least for now)?
+can declare vars using LET.
+can call a var on another var like x(y)->z.
+can use basic math ops on a pair of expressions, like (x+1)*y BUT todo verify they are doubles before doing that,
+or maybe should do that with func like mul(x)(y)... no dont want that on the heap, mul(x,y) could avoid the heap but may be too slow.
+can alloc a Float64Array, and can write it if it was allocated here.
+must return exactly 1 node (a node is either a Float64Array or a pair of nodes).
+
+stackFrame will be a node that, like any other, cant infloop nomatter what params its called on.
+
+stackFrame's n curried params should look like indented code with loops in loops and if/else etc, like a normal function.
+
+stackFrame would be either vararg or take a linkedlist param.
+
+Any halted function andOr data is a node and can therefore be saved/loaded on harddrive, shared on internet, etc,
+including functions generated by anonymous functions at runtime.
+
+
+stackFrame...
+
+x.y are not allowed, as thats a mutable var inside x, unless x is a Float64Array it can be modified within the stackframe that created it.
+Instead, use forkEditable immutable treemaps, made of nodes.
+
+
+A loop is kind of like a GOTO except just a more intuitive syntax for it.
+But need stackFrames curried params to look like indented human readable code.
+
+
+stackFrame's params maybe should have var names in them like lisptokens, but index into the stackframe is more efficient,
+but cant use just indexs cuz it wont be human readable.
+
+browser says...
+i = 50
+50
+while(i) i = i-1;
+0
+
+//fixme takes 1 param? vararg? 2 params at least, 1 maybe should be a map of namespace, and the other the normal param?
+//Or get that from currying? Also need ptr to self like in occamsfuncer bigcall1 to bigcall7
+fn
+	ns = ...TODO get namespace param...; //instead of cons(x)(y) its ns('cons')(x)(y) but thats too long to type and read and maps are slow.
+	param = ...TODO get other param...;
+	self = ...TODO see occamsfuncer recur...;
+	sum = 0
+	anotherFunction = //cant refer to any var names in the outer fn. every fn is independent.
+		fn
+			if
+			while
+				while
+			etc
+	aMutableArray = ns.calloc(567)
+	cons = ns.cons
+	wal = -1;
+	put = ns.put
+	i = 50
+	someFunc = ...TODO...;
+	while i
+		j = i
+		while j
+			sum += i*j
+			jIsEven = 1-(j%2)
+			if jIsEven
+				sum += 42
+			sum += aMutableArray(j)
+			someFunc = someFunc(someFunc)
+			j += someFunc(55*i)
+			aMutableArray = ns.put(aMutableArray)(j)(0) //would compile to aMutableArray[j] = 0. TODO find a shorter way to write that.
+			--j
+		wal = wallet(0) //the 0 param is ignored, but a function must take a param. returns current gas-minGas.
+		--i
+	ns.cons(aMutableArray)(37) //return value. nothing important about 37, just an example.
+
+//all named funcs must be among the params, cuz theres no namespace outside of a stackFrame.
+
+
+Replace all those while statements with while(true)... and use break?
+
+
+
+Syntax for cons(x)(y)...??
+x@y
+(x@y)@z
+[[x y] z] ?
+
+All functions are anonymous. Var names only exist within a stack frame, not visible to lower or higher stack frames.
+
+
+
+Or... Instead of calloc(567), push 567 number of 0s onto stack, and a var name refers to the first of those.
+and similar for other var names. They all refer to a specific stack index.
+Whenever that var is used as a param of something, its copied to a Float64Array thats used as immutable
+(which may be reused if hasnt changed since that happened last time?).
+???
+
+Everything in that indented code of functions making and using functions, is implied to call pay(1) etc before basically every line (or more optimized ways later),
+but that part isnt displayed.
+
+
+
+
+
+fn
+	aMutableArray = stackPtr
+	pushZeros 567
+	x = 7
+	But how do we know aMutableArray is size 567?
+	push 8
+	eight = peek //stackPtr-1
+
+
+
+fn
+	//Whenever #something is written, it is defined as the current value of stackPtr.
+	#aMutableArray
+	pushZeros 567
+	#eight
+	push 8
+	#aFuncXYZ
+	push
+		fn //aFuncXYZ = this function
+			if
+			while
+				while
+			etc
+	#aLoop
+		#innerLoop
+			
+		goto innerLoop
+	goto aLoop
+	fixme need conditional jumps not just goto
+	
+The only things that can be pushed onto stack are node, which is either a Float64Array, a float64, or a pair of nodes.
+Every fn statement is such a pair with stuff deeper inside.
+
+write it as a sequence of tokens...
+Include increaseIndentLevelByOne (lets abbrev that as @) and newline (lets abbrev that as N) in the tokens...
+fn
+	//Whenever #something is written, it is defined as the current value of stackPtr.
+	#aMutableArray
+	pushZeros 567
+	#eight
+	push 8
+	#aFuncXYZ
+	push
+		fn //aFuncXYZ = this function
+			if
+			while
+				while
+			etc
+	#aLoop
+		#innerLoop
+			
+		goto innerLoop
+	goto aLoop
+tokens...
+fn N
+"Whenever #something is written, it is defined as the current value of stackPtr."  N
+@	#aMutableArray N
+@	pushZeros 567 N
+@	#eight N
+@	push 8 N
+@	#aFuncXYZ N
+@	push N
+@	@	fn "aFuncXYZ = this function" N
+@	@	@	if N
+@	@	@	while N
+@	@	@	@	while N
+@	@	@	etc N
+@	#aLoop N
+@	@	#innerLoop N
+@	@	@	 N
+@	@	goto innerLoop N
+@	goto aLoop N
+
+Putting that Float64Array that looks like a string literal, without marking it as a comment, might break something?
+
+tokens...
+fn N
+"Whenever #something is written, it is defined as the current value of stackPtr."  N
+@	#aMutableArray N
+@	pushZeros 567 N
+@	#eight N
+@	push 8 N
+@	#aFuncXYZ N
+@	push N
+@	@	fn "aFuncXYZ = this function" N
+@	@	@	if N
+@	@	@	while N
+@	@	@	@	while N
+@	@	@	etc N
+@	#aLoop N
+@	@	#innerLoop N
+@	@	@	 N
+@	@	goto innerLoop N
+@	goto aLoop N
+
+A token is either like a lispToken (some kind of literal) or a node (node is a Float64Array or a float64 or a pair of nodes).
+Could mark some as node vs syntax token by using a linkedlist of pair of 0_or_1 and the_syntax_token_or_reference_to_node.
+
+
+
+
+
+
+
+fn
+	//Whenever #something is written, it is defined as the current value of stackPtr.
+	#aMutableArray
+	pushZeros 567
+	#eight
+	push 8
+	#aFuncXYZ
+	push
+		fn //aFuncXYZ = this function
+			if
+			while
+				while
+					aMutableArray[eight] = eight*eight
+					//*(aMutableArray+*eight) = (*eight) multiply (*eight), or something like that
+			etc
+	#aLoop
+		#innerLoop
+			
+		goto innerLoop
+	goto aLoop
+
+
+
+TODO include instructionPointer (ip) and stackPointer (sp) as 2 vars at the start of every fn, which user level code can see?
+
+fn
+	x = sp
+	#arraySize5
+	sp += 5
+	//#aLoop
+	aLoop = sp
+		...loop stuff...
+	ip = aLoop
+TODO define while if etc in terms of a fn syntax that uses sp and ip for controlflow, and maybe also * and &.
+Must be formalVerified, or statistically approaching it, to obey the gas and minGas logic.
+
+
+
+fn
+	x = sp++
+	y = sp++
+	//arraySize5
+	sp += 5
+	//#aLoop
+	someFunctionDefinedHere =
+		fn
+			while
+			while
+				while
+					if
+					...
+			if
+			while
+			etc
+	aLoop = sp++
+		...loop stuff...
+		someFunctionDefinedHere = someFunctionDefinedHere(someFunctionDefinedHere)
+		anInnerLoop = sp++
+			*(x+2) = *y //x[2] = y
+			...loop stuff...
+		ip = anInnerLoop
+		...loop stuff...
+	ip = aLoop
+	//would have very short name instead of copyMemRangeToFindDuplicateOrCreateNode, and likely some syntax to not have to write the aLoop-x part?
+	//its inconvenient to have to write whatever comes after a var, since might insert something between those later.
+	snapshotOfX = copyMemRangeToFindDuplicateOrCreateNode(x,aLoop-x)
+	j = cons('this is a snapshot of x')(snapshotOfX)
+	getSnapshotOfX = R(j) //FIXME where did R come from? theres no namespaces here except within local stack frame (whats in fn)
+
+It seems very similar to python but I'd like to see it compiled to a 50kB executable file instead of megabytes, and more importantly no existing language seems to guarantee that no possible calculation can infinite loop etc, and in this system, a namespace exists only within a stack frame, not visible below or above it on the stack, and is just a convenient way to refer to pointers onto stack.
+("MicroPython uses a couple hundred kB of ROM; which is amazingly small considering how much Python that includes. Snek is a much less capable language, but it can squeeze down to about 32kB of ROM if you leave out the math functions." -- https://lwn.net/Articles/810201/) but still, I dont want to pay for recursive namespaces when I'm just trying to blit 3d mandelbrot/mandelbulb/juliafractal onto the screen.
+
+
+
+In most programming ip would never point into sp, and some hardware even prevents it unless you click a "date execution prevention" checkbox or something like that,
+but that just means would have to run it in a VM made in any language instead of being 1 compiler level below it. Things still tend to be nearly as fast
+since memory IO is usually the bottleneck in that kind of thing, instead of small pieces of logic that fit in L1 cache.
+
+
+
+
+
+
+
+
+
 //The below text is meant to be interpreted after seeing how fun it is to play with, in some of its open-ended turingComplete combos, in a browser,
 //and naturally becoming curious how it works. Toward that, it is (TODO) divided into well defined tiny pieces that know and can strongly
 //verify they are compatible or incompatible, not by any kind of authority but by the patterns of information of
@@ -225,6 +636,10 @@ funcallPlugins.matmul = (vm, aFuncall)->{ throw 'TODO' };
 
 funcallPlugins.concat = (vm, aFuncall)->{ throw 'TODO' };
 
+//TODO write a function of any byte[] of webasm code to another byte[] of webasm code which decrements a "gas" counter every step and returns early if its 0,'
+//especially with the optimization of checking then subtracting n to the counter before n steps or n * m for 2 inner loops of size n and m etc.
+//It should be (in theory, todo verify theory and test) guaranteed that no possible 2 lambdas one called on the other, even in plugins,
+//can use more gas than allocated. This of course comes at a cost of efficiency, but cpu code takes the biggest loss, while gpu code in some cases runs equally fast.
 funcallPlugins.webasm = (vm, aFuncall)->{ throw 'TODO' };
 
 //todo copy my experimental music tools code here which stores opcodes in int (2 uint12 pointers up to double[4096]
