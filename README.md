@@ -46,8 +46,9 @@ fn
 	snapshotOfX = copyMemRangeToFindDuplicateOrCreateNode(x,aLoop-x)
 	j = cons('this is a snapshot of x')(snapshotOfX)
 	getSnapshotOfX = R(j) //FIXME where did R come from? theres no namespaces here except within local stack frame (whats in fn)
-	//snapshotOfX = copyMemRangeToFindDuplicateOrCreateNode(x,aLoop-x) is the wrong range (something inserted between) but
-	//ould copy any range within the allowed stackFrame only
+	//snapshotOfX = copyMemRangeToFindDuplicateOrCreateNode(x,aLoop-x)
+	//is the wrong range (something inserted between) but
+	//would copy any range within the allowed stackFrame only
 ```
 It seems very similar to python but I'd like to see it compiled to a 50kB executable file instead of megabytes, and more importantly no existing language seems to guarantee that no possible calculation can infinite loop etc, and in this system, a namespace exists only within a stack frame, not visible below or above it on the stack, and is just a convenient way to refer to pointers onto stack.
 ("MicroPython uses a couple hundred kB of ROM; which is amazingly small considering how much Python that includes. Snek is a much less capable language, but it can squeeze down to about 32kB of ROM if you leave out the math functions." -- https://lwn.net/Articles/810201/) but still, I dont want to pay for recursive namespaces when I'm just trying to blit 3d mandelbrot/mandelbulb/juliafractal onto the screen.
