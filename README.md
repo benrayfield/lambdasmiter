@@ -13,6 +13,8 @@ gas - amount of computing resources (adjusting cost ratio of allocBitOfMem vs on
 
 ipull - stream instruction pointer, an index into a double[] (aka Float64Array) on heap which increments and returns the next double at each call of a certain opcode which occurs on the stack, so 2 levels of instructionPointer: ip and sip (TODO think of better names for these registers).
 
+ipullFrom - ipullFrom(ipull) is the current stream instruction.
+
 "so the stack can kind of print itself from that single pass over the double[] opcodes" (in theory, TODO).
 
 All registers are writable by the double/float64 instruction at *ip, such as pushing 10 megabytes onto the stack with or without clearing it to 0s
