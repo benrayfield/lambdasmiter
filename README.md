@@ -54,6 +54,75 @@ fn
 	//snapshotOfX = copyMemRangeToFindDuplicateOrCreateNode(x,aLoop-x)
 	//is the wrong range (something inserted between) but
 	//would copy any range within the allowed stackFrame only
+	
+	
+
+There are 3 object types:
+1.23 double. A function that some values of are opcodes, and the others do some arbitrary thing like always return 0 or maybe should infloop (TODO choose design).
+<>   halted callpair. Has cur>0 such as S(T) has cur of 2, and S(T)(T) has cur of 1, and S(T)(T)(x) returns x.
+[]   tuple (of doubles andOr callpairs andOr tuples, aka any object type). [7, 3, 2, 10, 12](3) returns 10. len([7, 3, 2, 10, 12]) returns 5.
+	{...} is a syntax for ip and sp based code thats actually stored in a <> which contains a [] somewhere inside as the opcodes or maybe a [] directly.
+	"hello world" is a syntax for a tuple of doubles, and those doubles are 1<<256 times those character values (todo choose utf8, utf16, or utf20),
+		so the type of being a string or just some doubles is mostly made clear, but not completely, by if all chars are that, or maybe plus 2^52 or something like that.
+
+z(a,b,c) is a call that hasnt halted yet, but may instantly halt aka become <...> or [...] or 4.363 etc or not.
+	Every function has cur, inTupleSize, outTupleSize. The *tupleSize is needed for stack optimizations, as those params go on stack and are put back on stack when it returns.
+	
+
+
+
+//FIXME
+matmulSequential = {.....
+	ab = sp++
+	bc = sp++
+	aSize = sp++
+	bSize = sp++
+	cSize = sp++
+	ac = sp; //matrix to return
+	sp += mul(aSize,cSize) //FIXME is that aSize or *aSize?
+	acEnd = sp //FIXME there seems to be 2 varnames at same stack index: a and acEnd. Technically it doesnt need var names at all, but people need them.
+	a = sp++
+	b = sp++
+	c = sp++
+	a = 0 //FIXME it appears these should be "ab = *sp; sp++"
+	loopA = sp++
+		c = 0
+		loopC = sp++
+			b = 0
+			loopB = sp++
+				TODO sum mul(*a,*c). FIXME is that the right way of *x *y *z etc?
+				TODO use a local var and copy it once into ac? or sum into ac directly?
+				FIXME conditional branching, when does ip just increase by 1 and pass the loops
+				b++
+			ip = if(b-bSize,loopB,ip+1)
+			c++
+		ip = if(c-cSize,loopC,ip+1)
+		a++
+	ip = if(a-aSize,loopA,ip+1) //TODO this is too much to write
+	//return a (tuple size 1 containing a) tuple of size aSize*cSize, copied (or found duplicate of) onto heap and therefore immutable.
+	//This is a ptr on stack to that on heap.
+	ret = copy(ac,acEnd)
+	sp = ab //pop whatever pushed
+	*(-(sp,1)) = ret //TODO this is inconvenient to have to write function syntax for basic math, but can explore other syntaxs after the bytecode works.
+.}
+
+
+matmulParallel = {.....
+	TODO
+.}
+
+mandelbrot = {....
+	complexA = sp+=2
+	complexB = sp+=2
+	
+	TODO
+..} //returns complexnum, a tuple size 2 of doubles
+
+
+S = {. //S is a lambda of 3 curried params as in SKICalculus, not tupling them together
+	FIXME should this be a {...} vs <...> and an S opcode? Can {...} efficiently do currying?
+.}
+
 ```
 It seems very similar to python but I'd like to see it compiled to a 50kB executable file instead of megabytes, and more importantly no existing language seems to guarantee that no possible calculation can infinite loop etc, and in this system, a namespace exists only within a stack frame, not visible below or above it on the stack, and is just a convenient way to refer to pointers onto stack.
 ("MicroPython uses a couple hundred kB of ROM; which is amazingly small considering how much Python that includes. Snek is a much less capable language, but it can squeeze down to about 32kB of ROM if you leave out the math functions." -- https://lwn.net/Articles/810201/) but still, I dont want to pay for recursive namespaces when I'm just trying to blit 3d mandelbrot/mandelbulb/juliafractal onto the screen.
