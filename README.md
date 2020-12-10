@@ -19,7 +19,7 @@ ipullFrom - ipullFrom(ipull) is the current stream instruction.
 
 All registers are writable by the double/float64 instruction at *ip, such as pushing 10 megabytes onto the stack with or without clearing it to 0s
 or such as generating another tuple (such as a screen sized array of doubleARGB pixels) then generating a photoshop-like op
-then "jumping to" by writing the ipull register, jumping to another stream of opcodes "a photoshop-like op"
+then "jumping to" by writing the ipullFrom register and writing 0 to the ipull register, jumping to another stream of opcodes "a photoshop-like op"
 which automatically triggers attempted formal-verification of pointer arithmetic to prove it will always halt else "smite itself"
 which may find a solution or not but either way will not itself use more computing resources than caller allowed, and so on,
 or similarly for evolving musical instruments or minigames.
