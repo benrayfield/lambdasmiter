@@ -1,4 +1,61 @@
 # lambdasmiter
+Smites infinite loops at few microseconds time precision instead of the usual multiple seconds that it takes to back out of code that gets out of control.
+
+Only has pure math functions, so there is no namespace visible above or below the current stack frame except what is derived such as treemaps or linkedlists.
+
+Syntax might look like...
+```
+S(T)(T)(x)
+	returns x, for any x.
+
+callParamOnItself = someOtherFunc({...inlineFunc},5,2,S(T)(T)(x))(someMoreStuff)
+callParamOnItself(S(T)(T))
+	returns S(T)(T), cuz S(T)(T) is an identityFunc.
+callParamOnItself(S(T))
+	returns S(T)(S(T))
+
+//FIXME
+matmulSequential = {.....
+	#top
+	sp--
+	#ab
+	#bc
+	#aSize
+	#bSize
+	#cSize
+	#ac //matrix to return
+	sp += mul(aSize,cSize) //FIXME is that aSize or *aSize?
+	#acEnd
+	sp--
+	#a
+	#b
+	#c
+	a = 0 //FIXME it appears these should be "ab = *sp; sp++"
+	#loopA
+		c = 0
+		#loopC
+			b = 0
+			#loopB
+				TODO sum mul(*a,*c). FIXME is that the right way of *x *y *z etc?
+				TODO use a local var and copy it once into ac? or sum into ac directly?
+				FIXME conditional branching, when does ip just increase by 1 and pass the loops
+				b++
+				b-bSize
+			?loopB
+			c++
+			c-cSize
+		?loopC
+		a-aSize //FIXME sp++? sp++; *sp?
+	?loopA //ip = jumpIf0(*sp,loopA) //else ip+1 as usual
+	//return a (tuple size 1 containing a) tuple of size aSize*cSize, copied (or found duplicate of) onto heap and therefore immutable.
+	//This is a ptr on stack to that on heap.
+	ret = copy(ac,acEnd)
+	sp = top //pop whatever pushed
+	*(sp-1) = ret //TODO this is inconvenient to have to write function syntax for basic math, but can explore other syntaxs after the bytecode works.
+.}
+```
+
+
 Gamers and computing theorists... a theoretical (still lots of work to do) limit->turingComplete universal function where every call pair halts and with recursive timing you can use at the precision of sound vibrations or better. (maybe... appears could be done... lisp-like assembly-like pure-functional human-readable GPU compileable gaming-low-lag kind of float64[] based bytecode/heap/stack with complete reflection ability to the extent of blitting between someone's GPU and someone on another computer's speakers or microphone etc while being at least an approximation of a univeral lambda function and pattern calculus function, where the lambda is the unit of computing instead of the byte... see readme example)  with formally-verified pointers) A universal function for browser javascript loosely based on occamsfuncer. Like hitting the halting-problem with Thor's hammer, it smites infinite loops etc 1 million times faster than the competition. Get creative. Have fun. Build things together, defended by lambdasmiter so your browser tab cant crash even if you try to run an infinite loop etc. Can in theory smite through 100,000 infinite loops per second (compared to the usual 0 to 0.1 per second) then get back to your cat memes and multiplayer gaming experiments without missing a step, without delaying the next video frame of the game, without your mouse or text cursor feeling jumpy, and especially for AI experiments where AIs write experimental code to create new AIs and people and AIs play and build together and share lambdas across the internet similar to how most apps share byte streams, except the lambda, not the byte, is the unit of computing here. Its a workaround for the halting problem which smites any lambda call reliably when its about to, or sometimes can be known that it would later, use more memory or compute cycles etc than its allocated thousands per second of such recursive limits within limits per stack height, in a subset of pure functional browser javascript with GPU optimizations and gaming low lag canvas pixels and game controllers and textareas and p2p etc, and whole or sparse system state (stateless lambdas, including Float64Array, in lazy merkle forest) is saveable and loadable in byte arrays, and random or malicious or just fun experimental code shared across the internet can be run safely together in a tiny fraction of a second.
 
 ...todo merge the 1 above and 1 below paragraphs, much duplication.
