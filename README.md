@@ -1,6 +1,13 @@
 # lambdasmiter
-Smites infinite loops at few microseconds time precision instead of the usual multiple seconds that it takes to back out of code that gets out of control.
+This is loosely based on a working model of self-modifying computing in occamsfuncer which has testcases working up to calling a derived equals function on itself and what that returns call it on the equals again equals(equals)(equals) it it says true, but occamsfuncer is much harder to optimize than this and I need to get something online. Smites infinite loops at few microseconds time precision instead of the usual multiple seconds that it takes to back out of code that gets out of control.
 Always halts, but is not always turingComplete, but the only turingCompleteness sacrificed is that turingCompleteness says it can use as much memory and compute cycles as it wants, vs in this model of computing, things lower on the stack can further limit the number of compute cycles and amount more of memory allowed in deeper calls on the stack, which can each tighten such limits but cant loosen them, and branch one way or another depending if a call finished normally vs gave up early due to not enough compute resources. Always halts such as within 0.02 seconds if you want it to guarantee halting before the next video frame of a game is displayed.
+
+Registers in the whole system in a double[] (and maybe some struct-like javascript objects as optimizations of that):
+ip - stack instruction pointer.
+sp - stack pointer
+gas - amount of computing resources (adjusting cost ratio of allocBitOfMem vs oneComputeCycle based on supply and demand)
+ipull - stream instruction pointer, an index into a double[] (aka Float64Array) on heap which increments and returns the next double at each call of a certain opcode which occurs on the stack, so 2 levels of instructionPointer: ip and sip (TODO think of better names for these registers).
+"so the stack can kind of print itself from that single pass over the double[] opcodes" (in theory, TODO).
 
 Only has pure math functions, so there is no namespace visible above or below the current stack frame except what is derived such as treemaps or linkedlists.
 
