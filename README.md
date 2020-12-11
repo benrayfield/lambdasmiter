@@ -82,8 +82,6 @@ matmulSequential = {.....
 .}
 ```
 
-Compiling to various custom experimental systems may be available upon request such as to black-hole-computer or crispr.
-
 Add another register???, which points into a heap array and gives you the next double in it every time a certain op is called,
 so the stack can kind of print itself from that single pass over the double[] opcodes aka {...}, while executing and pushing the rest of itself onto stack.
 Opcodes are like InputStreamOfDouble, which are streamed onto the stack after the stack finishes executing the last opcode,
