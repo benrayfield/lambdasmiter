@@ -24,6 +24,8 @@ which automatically triggers attempted formal-verification of pointer arithmetic
 which may find a solution or not but either way will not itself use more computing resources than caller allowed, and so on,
 or similarly for evolving musical instruments or minigames.
 
+Imagine formal-verification like your bank lets you tell them how much money you have, but only if you can prove that you would not lie to them in this specific case and the entire space of possibilities of you and them can be explored sparsely together, and as every hardware probably has an error at some time or another at least rarely, all calculations are repeatable and peer-reviewable, including graphics blits etc, within a public or private space among those who make such statements to eachother and prove or do not prove various things to eachother, as eachother may be motivated to interact in some way or another.
+
 Only has pure math functions, so there is no namespace visible above or below the current stack frame except what is derived such as treemaps or linkedlists.
 
 Will be fast enough to render 3d fractals in a canvas and to generate new musical instruments which speakers and microphones analog holes can have instruments plugged into, bumpmapped polygons (but far less number of them), high dimensional graphics (miegakure is cool but I think we need tetrations of number of dimensions), screen blitting, etc. But it wont be the fastest system for branching. Its designed with extremely parallel computing as higher priority.
