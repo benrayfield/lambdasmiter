@@ -2,8 +2,57 @@
 This is loosely based on a working model of self-modifying computing in occamsfuncer which has testcases working up to calling a derived equals function on itself and what that returns call it on the equals again equals(equals)(equals) it it says true, but occamsfuncer is much harder to optimize than this and I need to get something online. Smites infinite loops at few microseconds time precision instead of the usual multiple seconds that it takes to back out of code that gets out of control.
 Always halts, but is not always turingComplete, but the only turingCompleteness sacrificed is that turingCompleteness says it can use as much memory and compute cycles as it wants, vs in this model of computing, things lower on the stack can further limit the number of compute cycles and amount more of memory allowed in deeper calls on the stack, which can each tighten such limits but cant loosen them, and branch one way or another depending if a call finished normally vs gave up early due to not enough compute resources. Always halts such as within 0.02 seconds if you want it to guarantee halting before the next video frame of a game is displayed.
 
+Bytecode verifying plan[[[
+/** always quickly returns, and even faster from cache if its not the first call */
+public boolean isValidBytecode(){
+if(cache_isCertainlyVerified) return true;
+if(cache_isCertainlyFailedVerify) return false;
+throw new RuntimeException("TODO verify (see SimpleVM.nextState opVerify, which should call this, then cache in 1 of those 2 booleans");
+//its verified if from tuple[0] to tuple[tuple.length-1], every double's int23 (above the low byte)
+//at tuple[i] is i+int23 (signed int23) and that is in range 0 to tuple.length-1,
+//and all paths in that where each index branches to 1 or 2 other indexs,
+//summing the changes in stack height (like multiply pops 2 and pushes 1 so is -1 to stack height)
+//on all paths, leads to the same constant stack height (rel to stack height at [0])
+//at each index. If theres multiple paths to get from [i] to [j] then they have to all
+//sum the same difference in stack height, so each index has a specific stack height thats
+//stackHeight of [0] plus its own stack height,
+//and the last index branches to the first index but never actually goes there
+//as the last opcode must be Op.ret to return.
+//Does not verify anything about gas as thats enforced in VM.nextState().
+//Verifies VM.lsp and VM.hsp. Every op must not read or write anything on stack below VM.lsp
+//nor above VM.hsp (or equal to it?) and can choose to increase VM.lsp (up to current hsp)
+//but cant choose to decrease lsp (only happens when RETURN, so lsp and hsp are same before and after a call.
+//If you want to push a large array onto stack, you have to loop around multiple funcs
+//that calls itself that calls itself... and so on, adding a constant height to stack each time,
+//but choosing to keep lsp the same, so hsp-lsp increases,
+//and inside that most inner call, it can read and write in that large block of memory
+//such as blitting rectangles of doubleARGB (32 bit color, ignoring high bits) pixels,
+//matmul by Op.forkNM, etc.
+//
+//TODO I'd like to find some way to not have to recurse so deep, like an op that just
+//pushes a large amount of data to stack, such as push1 push256 push64k push16m etc
+//or have more bits of opcode than just those 256 so can do it all in 1 opcode,
+//yes... that would work. Something like that. Cuz stack height is still the same.
+//You just cant push a variable amount on stack based on content of the stack,
+//unless the bytecode has a few sizes such as log number of areas in the bytecode
+//that are basically log number of different amounts to push on stack, log number
+//of different functions.
+//
+//But its not as big a problem as it sounds, since you can just generate new bytecode
+//and verify it and jump to it in a few microseconds in theory,
+//and the system will support exabytes of bytecode streaming all around the internet sparsely at gaming low lag
+//(which you dont need to sign with a digital signature since its verified by its possible behaviors not by trust,
+//especially that its verified to stay within global sandbox and to always halt, like SQL always halts but more advanced,
+//which for example means that even though it can contain a simulated botnet like conways game of life
+//contains gliders and other replicators, it can not itself be a botnet and does not give execute permission to anything).
+//Thats why I keep the bytecode very simple.
+}
+]]]
+
 Registers in the whole system in a double[], which can be struct-like or number,
 	and maybe some struct-like javascript objects as optimizations of that:
+
+UPDATE: these are not the exact registers but similar, see SimpleVM.java for progress on that...
 
 ip - stack instruction pointer.
 
