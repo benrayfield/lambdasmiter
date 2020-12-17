@@ -52,6 +52,17 @@ public strictfp class SimpleVM implements VM{
 	*/
 	private boolean dirty = false;
 	
+	/** starts true at bottom of stack, and at any point lower on stack can choose to become false (pure determinism)
+	there and everywhere deeper on stack, until return from that, and when cross that border on stack,
+	allowDirty is true again. Like recursive gas limits, this can be done in many recursions in and out differently.
+	When !allowDirty and its about to set dirty to true, it instead evals to (S I I (S I I)) aka a very simple infinite loop,
+	aka smites itself, which causes it to give up on that calculation and back out to
+	the innermost spend (gas limit/catchHaltingProblem) call.
+	Thats the same way it works in occamsfuncer, or at least in some forks of occamsfuncer which are not all
+	merged or complete yet, but the universal function of occamsfuncer is working in the newest for as of 2020-12.
+	*/
+	private boolean allowDirty = true;
+	
 	private static final Op[] ops;
 	static{
 		ops = Op.values();
@@ -62,11 +73,11 @@ public strictfp class SimpleVM implements VM{
 	but can estimate memory as this times a little more than 64 bits
 	as most of it is autoboxed doubles. You might want a much bigger stack
 	up to maxPossibleStackSizeIn1Array Numbers,
-	since its the only mutable memory usable by opcodes. 
+	since its the only mutable memory usable by opcodes.
 	<br><br>
 	The heap can be any size since its a forest not an array.
 	*/
-	private static final int defaltStackSize = 1<<24;
+	private static final int defaultStackSize = 1<<24;
 	
 	/** 1<<30 cuz mInteger.MAX_VALUE? or maybe stack size should have to be a powOf2 for mask optimization
 	in which case this would be 1<<30 aka an approx 8gB stack,
@@ -80,7 +91,7 @@ public strictfp class SimpleVM implements VM{
 	private static final int maxPossibleStackSizeIn1Array = 1<<30; //Integer.MAX_VALUE;
 	
 	public SimpleVM(){
-		this(defaltStackSize);
+		this(defaultStackSize);
 	}
 	
 	public SimpleVM(int stackSize){

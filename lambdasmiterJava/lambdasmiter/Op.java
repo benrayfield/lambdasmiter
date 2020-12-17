@@ -80,6 +80,59 @@ public enum Op{
 	
 	nandOf2Bits(2,1,false,false),
 	
+	/** tightenConstraintsDeeperOnStack.
+	The constraints this tightens any or all of are:
+	<br><br>
+	-- VM.allowDirty can change from true (nondeterministic) to false (deterministic),
+		but cant change from false to true except by returning back to where it already was true.
+	<br><br>
+	-- VM.minGas can increase but not decrease, so (VM.gas-VM.minGas) can decrease but not increase,
+		which means at some point on the stack it wants to only allow a deeper call access to part of that gas
+		and to get back from that whatever it doesnt use.
+	<br><br>
+	-- VM.lsp can increase but not decrease, so (VM.hsp-VM.lsp) can decrease but not increase except by opcodes
+		which increase and decrease hsp but those guarantee that (VM.hsp-VM.lsp) is the same before and after every call.
+		(VM.hsp-VM.lsp) being same before and after every call may be annoying or inefficient like if you do
+		complexNumMultiply you want to put in 4 doubles and get back 2 doubles
+		(plus the complexNumMultiply lambda itself is above them on the stack)
+		so there has to be padding such as stack[lsp..hsp],
+		where complexNumMultiply is an anonymous generated and verified bytecode (not built in):
+		[x.real x.imaginary y.real y.imaginary complexNumMultiply] (just the highest 5 Number on stack, no var names)
+		-> [z.real z.imaginary 0 0 0] then pop3 so [z.real z.imaginary] is on top.
+		complexNumMultiply is not allowed to pop3. Only the caller of complexNumMultiply can,
+		and that change of hsp by -3 has to be restored to whatever it was when the current call started,
+		so the caller lower on stack sees their same (VM.hsp-VM.lsp) before and after calling this current calculation,
+		which they may have TIGHTEN (this op) to hsp-lsp=5 (or any hsp-lsp>=5) just before calling this current calculation.
+	<br><br>
+	Constraints are all relaxed to maximum possibilities in VM.clear(double)
+	which is normally called every 1./60 second between video frames of a game or
+	between each 2 consecutive interactions with the outside world.
+	It can be very infrequent (days, if its a large batch to finish by then,
+	though you might need more bits of precision of the gas counter if its more than minutes)
+	or even faster (few microseconds, if its doing a very small amount of work),
+	depending what you're using it for.
+	<br><br>
+	Cant relax constraints but can tighten them, which applies only in calls deeper on stack,
+	and when those return (either normally or by running out of gas), the constraints at this stack height
+	are back to how they were before the call, but only below VM.lsp cuz stack[lsp..hsp] may have been modified,
+	and in pure lambda math that is modelled as whats here on stack is whatever that deeper call returned,
+	even if it didnt get all its work done, like a mutable range of 1 million Nummbers can be read and written
+	by deeper calls, and each of those calls is modelled as a function of 1 million Numbers to 1 million Numbers,
+	which this current calculation being done on stack is replaced by it similar to lispProgn.
+	This current calculation can be reproduced by things which occurred either earlier or lower than lsp on stack.
+	The mutable stack is an optimization of pure lambdas which have nothing mutable about them at all,
+	and if you want to use them without that optimization, then use Tuple as UnaryOperator<Tuple>
+	where the input and output Tuples are stack[lsp..hsp] and are always the same size
+	and you can call it on a bigger or equal stack[lsp..hsp] range than that but not a smaller one,
+	and actually you can call it on a smaller one but it just wont eval and will do a no-op or infinite loop
+	or something like that (todo choose design of what it must deterministicly do if stack[lsp..hsp]
+	is smaller than the range it reads/writes.
+	<br><br>
+	TODO I'm undecided if this should happen in the CALL and FORKMN opcodes,
+	vs if it should be a separate opcode.
+	*/
+	tighten(TODO...),
+	
 	//FIXME maybe ops should use the 24 extra bits, other than the 8 bits to choose op type,
 	//to choose how much to pop or push all 0s, instead of having log number of some op types in this enum.
 	
@@ -172,7 +225,7 @@ public enum Op{
 	/** true if the call can cause a turing complete thing to happen before it ends
 	therefore gas has to be checked during it and use metastack parts such as remembering
 	lsp and hsp and how many bytecodes calling bytecodes deep it is.
-	If false, then gas is computed and prepad before running the op (instead of during).
+	If false, then gas is computed and prepaid before running the op (instead of during).
 	Either way, everything always halts and never uses more compute resources
 	(gas, representing memory allocated more than there is now, compute cycles,
 	and other kinds of compute resources, whatever resources the local kind of lambdadmiterVM
