@@ -8,6 +8,7 @@ There will be a variety of realtime interoperable (at gaming-low-lag) lambdasmit
 This is loosely based on a working model of self-modifying computing in occamsfuncer which has testcases working up to calling a derived equals function on itself and what that returns call it on the equals again equals(equals)(equals) it it says true, but occamsfuncer is much harder to optimize than this and I need to get something online. Smites infinite loops at few microseconds time precision instead of the usual multiple seconds that it takes to back out of code that gets out of control.
 Always halts, but is not always turingComplete, but the only turingCompleteness sacrificed is that turingCompleteness says it can use as much memory and compute cycles as it wants, vs in this model of computing, things lower on the stack can further limit the number of compute cycles and amount more of memory allowed in deeper calls on the stack, which can each tighten such limits but cant loosen them, and branch one way or another depending if a call finished normally vs gave up early due to not enough compute resources. Always halts such as within 0.02 seconds if you want it to guarantee halting before the next video frame of a game is displayed.
 
+```
 Bytecode verifying plan[[[
 /** always quickly returns, and even faster from cache if its not the first call */
 public boolean isValidBytecode(){
@@ -54,6 +55,410 @@ throw new RuntimeException("TODO verify (see SimpleVM.nextState opVerify, which 
 //Thats why I keep the bytecode very simple.
 }
 ]]]
+
+package lambdasmiter;
+
+public enum Op{
+	
+	/** does not modify whats on stack top. just reads it and compares its double value to 0 (tuples count as 0 here) */
+	jump(1,1,false,false),
+	
+	verifyBytecode(1,1,false,false),
+	
+	pushGas(0,1,false,true),
+	
+	/** FIXME maybe should merge with call
+	If not merge this with call (so dont need separate op), then this is similar to occamsfuncer nondet spend op.
+	*/
+	//spend(),
+	
+	/** FIXME dont use nulls for ins and outs here? */
+	smite(null,null,false,false),
+	
+	call(null,null,true,false),
+	
+	forkNM(null,null,true,false),
+	
+	/** the lambda S from SKICalculus aka Lx.Ly.Lz.xz(yz),
+	or todo at least a stack based form of it.
+	x = pop(); y = pop(); z = pop(); push(call(call(x,z),call(y,z))); or something like that?
+	but might want the pairakatuplesize2<stuff,bytecode> representation of funcs instead
+	andOr somehow related to this. TODO finish designing it.
+	<br><br>
+	The K/T normally used with S (like in unlambda and occamsfuncer)
+	would be to just read the top, or is it second from top, of stack, or something like that?
+	<br><br>
+	Together these are turingComplete, and will be very useful for organizing the more optimized lambdas
+	that are functions of tuple to tuple.
+	<br><br>
+	But I might still want a form of pairakatuplesize2<stuff,bytecode> of these basic parts of lambdas.
+	<br><br>
+	WARNING: the S lambda is the main reason occamsfuncer needs the very expensive dedup.
+	*
+	S(3,1,true,false),
+	*/
+	FIXME if this is an op, then it has to be designed very carefully similar to the CALL and forkNM ops
+	cuz it is subject to halting problem, while most ops have a cost limited by either constant or at worst stack size.
+	So maybe S should be derived from call, using bytecode, to not complicate the VM.
+	But its extremely useful, combined with K/T its turing complete, so maybe its worth that complexity.
+	But S is normally used with either 0 1 or 2 lambdas curried with it, and it only does interesting things
+	on the third curry, so maybe pairakatuplesize2<stuff,bytecode> is the most natural form for it,
+	where "stuff" would contain those 0 1 or 2 curried lambdas (or other tuple kind of optimized lambdas).
+	I want S etc so I can dragAndDrop lambda onto lambda to find/create lambda instead of having
+	to think about stack and tuples. I want to use the system as if its made only of lambdas
+	that curry 1 thing at a time and return 1 thing, leaving tuples as optimizations or stuff deeper
+	inside those simpler lambdas.
+	They are the high level thoughts to organize the low level number crunching.
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	//ops that have bigO of at worst stack size (most of them have bigO of constant) below...
+	
+	copyStackTopToMidStack(null,null,false,false),
+	
+	copyHeapToStack(null,null,false,false),
+	
+	/** FIXME I was about to write ins=null and outs=1 cuz it copies a range of stack to 1 new tuple on top of stack,
+	but that seems to imply that stack height is reduced by 1-varSize, but stack height instead increases by 1.
+	*/
+	copyStackToHeap(null,null,false,false),
+	//lsmOpPushFromMidStack, is this the same as lsmOpPushFromMidStack?
+
+	pair(2,1,false,false),
+	
+	//TODO various lsmOps for 32 bit logic, including and or not xor >> >>> << rotate nand nor minority majority
+	
+	//TODO various lsmOps for 32 bit arithmetic such as plus mult negate mod etc, which may be optimized in Int32Array in js
+	
+	nandOf2Bits(2,1,false,false),
+	
+	/** tightenConstraintsDeeperOnStack.
+	The constraints this tightens any or all of are:
+	<br><br>
+	-- VM.allowDirty can change from true (nondeterministic) to false (deterministic),
+		but cant change from false to true except by returning back to where it already was true.
+	<br><br>
+	-- VM.minGas can increase but not decrease, so (VM.gas-VM.minGas) can decrease but not increase,
+		which means at some point on the stack it wants to only allow a deeper call access to part of that gas
+		and to get back from that whatever it doesnt use.
+	<br><br>
+	-- VM.lsp can increase but not decrease, so (VM.hsp-VM.lsp) can decrease but not increase except by opcodes
+		which increase and decrease hsp but those guarantee that (VM.hsp-VM.lsp) is the same before and after every call.
+		(VM.hsp-VM.lsp) being same before and after every call may be annoying or inefficient like if you do
+		complexNumMultiply you want to put in 4 doubles and get back 2 doubles
+		(plus the complexNumMultiply lambda itself is above them on the stack)
+		so there has to be padding such as stack[lsp..hsp],
+		where complexNumMultiply is an anonymous generated and verified bytecode (not built in):
+		[x.real x.imaginary y.real y.imaginary complexNumMultiply] (just the highest 5 Number on stack, no var names)
+		-> [z.real z.imaginary 0 0 0] then pop3 so [z.real z.imaginary] is on top.
+		complexNumMultiply is not allowed to pop3. Only the caller of complexNumMultiply can,
+		and that change of hsp by -3 has to be restored to whatever it was when the current call started,
+		so the caller lower on stack sees their same (VM.hsp-VM.lsp) before and after calling this current calculation,
+		which they may have TIGHTEN (this op) to hsp-lsp=5 (or any hsp-lsp>=5) just before calling this current calculation.
+	<br><br>
+	Constraints are all relaxed to maximum possibilities in VM.clear(double)
+	which is normally called every 1./60 second between video frames of a game or
+	between each 2 consecutive interactions with the outside world.
+	It can be very infrequent (days, if its a large batch to finish by then,
+	though you might need more bits of precision of the gas counter if its more than minutes)
+	or even faster (few microseconds, if its doing a very small amount of work),
+	depending what you're using it for.
+	<br><br>
+	Cant relax constraints but can tighten them, which applies only in calls deeper on stack,
+	and when those return (either normally or by running out of gas), the constraints at this stack height
+	are back to how they were before the call, but only below VM.lsp cuz stack[lsp..hsp] may have been modified,
+	and in pure lambda math that is modelled as whats here on stack is whatever that deeper call returned,
+	even if it didnt get all its work done, like a mutable range of 1 million Nummbers can be read and written
+	by deeper calls, and each of those calls is modelled as a function of 1 million Numbers to 1 million Numbers,
+	which this current calculation being done on stack is replaced by it similar to lispProgn.
+	This current calculation can be reproduced by things which occurred either earlier or lower than lsp on stack.
+	The mutable stack is an optimization of pure lambdas which have nothing mutable about them at all,
+	and if you want to use them without that optimization, then use Tuple as UnaryOperator<Tuple>
+	where the input and output Tuples are stack[lsp..hsp] and are always the same size
+	and you can call it on a bigger or equal stack[lsp..hsp] range than that but not a smaller one,
+	and actually you can call it on a smaller one but it just wont eval and will do a no-op or infinite loop
+	or something like that (todo choose design of what it must deterministicly do if stack[lsp..hsp]
+	is smaller than the range it reads/writes.
+	<br><br>
+	TODO I'm undecided if this should happen in the CALL and FORKMN opcodes,
+	vs if it should be a separate opcode.
+	*/
+	tighten(TODO...),
+	
+	//FIXME maybe ops should use the 24 extra bits, other than the 8 bits to choose op type,
+	//to choose how much to pop or push all 0s, instead of having log number of some op types in this enum.
+	
+	pop(1,0,false,false),
+	
+	pop4(1,0,false,false),
+	
+	pop16(1,0,false,false),
+	
+	pop64(1,0,false,false),
+	
+	pop256(1,0,false,false),
+	
+	pop1k(1,0,false,false),
+	
+	pop4k(1,0,false,false),
+	
+	pop16k(1,0,false,false),
+	
+	pop64k(1,0,false,false),
+	
+	pop256k(1,0,false,false),
+	
+	pop1m(1,0,false,false),
+	
+	pop4m(1,0,false,false),
+	
+	pop16m(1,0,false,false),
+	
+	pop64m(1,0,false,false),
+	
+	pop256m(1,0,false,false),
+	
+	pop1g(1,0,false,false),
+	
+	/** push(peek()) */
+	dup(1,2,false,false),
+	
+	noop(0,0,false,false),
+	
+	pushIsVerifiedOrNot(1,1,false,false),
+	
+	tupleLen(1,1,false,false),
+	
+	nodeType(1,1,false,false),
+	
+	/** FIXME this might be replaced by reaching the last index of a tuple used as opcode,
+	or maybe this ret op would be at that last index.
+	FIXME i dont know if this is the right number of ins and outs, but I do know its some constant.
+	*/
+	ret(0,0,false,false),
+	
+	add(2,1,false,false),
+	
+	mul(2,1,false,false),
+	
+	div(2,1,false,false),
+	
+	oneDiv(1,1,false,false),
+	
+	mod(2,1,false,false),
+	
+	/** push(-pop()) */
+	neg(1,1,false,false),
+	
+	//todo lsmOps for copying between lsmLowSp+[0..63] and sp-[0..63] and top of stack, or something like that
+	
+	min(2,1,false,false),
+	
+	max(2,1,false,false);
+	
+	//TODO truncateIntoMinAndMax isInfiniteOrNan etc
+	
+	/** UPDATE: use null to mean dynamic on that part.
+	isDynamic || (VM.hsp-VM.lsp <= ins) (fixme, is this offby1?).
+	isDynamic OR Change in stack height = outs-ins.
+	If isDynamic then ignore ins and outs, which are both set to -1.
+	TODO have 2 isDynamic fields, as some ops are dynamic only on the ins side or outs side
+	and constant size on the other side, but for now (2020-12-17) those are marked as isDynamic.
+	*/
+	public final Integer ins;
+	
+	/** see comment of ins */
+	public final Integer outs;
+	
+	/** variable size ins andOr variable size outs, such as copying a range between stack and heap *
+	public final boolean isDynamic;
+	*/
+	
+	/** true if the call can cause a turing complete thing to happen before it ends
+	therefore gas has to be checked during it and use metastack parts such as remembering
+	lsp and hsp and how many bytecodes calling bytecodes deep it is.
+	If false, then gas is computed and prepaid before running the op (instead of during).
+	Either way, everything always halts and never uses more compute resources
+	(gas, representing memory allocated more than there is now, compute cycles,
+	and other kinds of compute resources, whatever resources the local kind of lambdadmiterVM
+	may need to choose which lambda calls get how much of what kinds as different computers
+	have different efficiencies for different kinds of calculations like some have
+	a very strong GPU while others have a weak GPU and lots of CPUs
+	and some have more or less memory, network bandwidth to/from places known to be in global sandbox,
+	caching things on harddrive vs memory vs network,
+	calling of cloud number crunching services (if they can do exactly the calculation requested
+	without depending on state such as internet addresses as it has to be repeatable in
+	every lambdasmiterVM even if they dont have access to the same hardware or systems
+	else set the dirty bit (see occamsfuncer mutableWrapperLambda theory for digsig way
+	of using pubkey as a lambda so its past actions can be repeated as verified by sigs
+	even if it cant necessarily do any calls that havent been observed so far so clouds and other
+	mutable systems like game controllers and sensors might easier fit in there), etc).
+	*/
+	public final boolean isTuring;
+	
+	/** If false, is deterministic and repeatable by anyone who has any call in the long history that led to this possible state.
+	If true, then its not repeatable, such as depends on nondeterministic optimizations of
+	how much gas certain calculations cost like lazy dedup of tuples within tuples deeply
+	only pays memory cost when allocate a new tuple or a smaller cost to lookup the existing tuple of same content,
+	or that different computers have a different cost ratio of calculations done on CPU vs GPU
+	andOr other costs tuned to the actual compute resources available.
+	Its isDirty to read how much gas is available.
+	Its isDirty to be smited (give up on a calculation for being too expensive, back out of it)
+	for running out of gas (at some stack height, which lower on stack does catch/else for what to do if runs out of gas).
+	Its NOT isDirty to call spend which is like try/catch for running out of gas IF it does not run out of gas
+	cuz thats a repeatable calculation by any other computer which makes that call and does not run out of gas
+	even if they had different amounts of gas and different costs for the calculation,
+	they both get the same id for every input and output and function in the system
+	so they can share lambdas across the internet and do calculations together without things breaking.
+	<br><br>
+	isDirty sticks to any calculations resulting from an isDirty calculation even if those later ops arent isDirty.
+	*/
+	public final boolean isDirty;
+	
+	Op(Integer ins, Integer outs, boolean isTuring, boolean isDirty){
+		this.ins = ins;
+		this.outs = outs;
+		this.isDirty = isDirty;
+	}
+	
+}
+
+public void nextState(){
+		gas--; //FIXME smite/backOut if gas would go below lowGas, and different ops take different amounts of gas.
+		double opcode = bytecode.get(ip).doubleValue();
+		int addToIp = 1;
+		if(opcode >= 0){ //push that literal double. For negative literal, next opcode should be NEG.
+			pushD(opcode);
+		}else{ //normal opcode
+			Op op = ops[(byte)opcode];
+			dirty |= op.isDirty;
+			switch(op){
+			case call: //CALL (the lambda on top of stack on the tuple stack[lsp..hsp])
+				throw new RuntimeException("TODO");
+				
+				
+				
+			case jump:
+				//If stack
+				//jump inside same bytecode. Add to current ip some number inside the bits of the opcode.
+				//get the 23 bits just above the byte op, as signed int23,
+				//so bytecode can be at most double[1<<23].
+				if(peekD()==0){
+					addToIp = (((int)opcode)<<1)>>9; //int23
+				}
+			break;case neg: //NEG(x)
+				pushD(-popD());
+			break;case mul: //multiply(x,y)
+				pushD(popD()*popD());
+			break;case add: //plus(x,y)
+				pushD(popD()+popD());
+			break;case mod: //double%double  TODO % and / together, 2 in 2 out? many hardwares are faster for that, in theory.
+				pushD(popD()%popD());
+			break;case div: //double/double
+				pushD(popD()/popD());
+			break;case oneDiv: //1/double
+				pushD(1./popD());
+			break;case min: //min(x,y)
+				double a = popD(), b = popD();
+				pushD(a<b ? a : b);
+			break;case max: //max(x,y)
+				a = popD();
+				b = popD();
+				pushD(a<b ? b : a);
+			break;case copyStackToHeap: //copy from mutable stack to immutable heap (or find equal content in heap), a range in stack, to a whole tuple in heap
+				if(1<2) throw new RuntimeException("TODO optimize by doing infloop or noop or return constant from here");
+			break;case copyHeapToStack: //copy from immutable heap to mutable stack, a range in each
+				if(1<2) throw new RuntimeException("TODO optimize by doing infloop or noop or return constant from here");
+			break;case copyStackTopToMidStack:
+				if(1<2) throw new RuntimeException("TODO optimize by doing infloop or noop or return constant from here");
+			break;case pushGas: //WARNING: NONDETERMINISTIC, so mark that nondeterminism happened from here on
+				pushD(gas-lowGas);
+				dirty = true;
+			break;case verifyBytecode: //verify bytecode at top of stack and push 0 or 1 on stack if it fails vs passes.
+				//This will happen automatically the first time, then cache it, for each tuple called as a lambda.
+				//See Tuple.cache_isCertainlyVerified and Tuple.cache_isCertainlyFailedVerify.
+				Number n = pop();
+				//returns isValidBytecode from cache if not the first time
+				boolean verify = (n instanceof Tuple) ? ((Tuple)n).isValidBytecode() : false;
+				pushD(verify ? 1 : 0);
+				//if(1<2) throw new RuntimeException("TODO");
+			/*opForkMN
+			
+			break;case 'E':
+				pushD(Math.exp(popD()));
+			break;case 'e':
+				pushD(Math.log(popD()));
+			break;case 'h':
+				pushD(Math.tanh(popD())); //tanh is range -1 to 1 and is a scaled sigmoid which is 0 to 1
+			break;case '':
+				pushD(Math.tanh(popD())); //tanh is range -1 to 1 and is a scaled sigmoid which is 0 to 1
+			*/
+			//default:
+				//noop
+				//throw new RuntimeException("TODO optimize by doing infloop or noop or return constant from here");
+			break;case dup:
+				if(1<2) throw new RuntimeException("TODO");
+			break;case forkNM:
+				if(1<2) throw new RuntimeException("TODO");
+			break;case nandOf2Bits:
+				if(1<2) throw new RuntimeException("TODO");
+			break;case nodeType:
+				if(1<2) throw new RuntimeException("TODO");
+			break;case noop:
+				if(1<2) throw new RuntimeException("TODO");
+			break;case pair:
+				if(1<2) throw new RuntimeException("TODO");
+			break;case pop:
+				if(1<2) throw new RuntimeException("TODO");
+			break;case pop16:
+				if(1<2) throw new RuntimeException("TODO");
+			break;case pop16k:
+				if(1<2) throw new RuntimeException("TODO");
+			break;case pop16m:
+				if(1<2) throw new RuntimeException("TODO");
+			break;case pop1g:
+				if(1<2) throw new RuntimeException("TODO");
+			break;case pop1k:
+				if(1<2) throw new RuntimeException("TODO");
+			break;case pop1m:
+				if(1<2) throw new RuntimeException("TODO");
+			break;case pop256:
+				if(1<2) throw new RuntimeException("TODO");
+			break;case pop256k:
+				if(1<2) throw new RuntimeException("TODO");
+			break;case pop256m:
+				if(1<2) throw new RuntimeException("TODO");
+			break;case pop4:
+				if(1<2) throw new RuntimeException("TODO");
+			break;case pop4k:
+				if(1<2) throw new RuntimeException("TODO");
+			break;case pop4m:
+				if(1<2) throw new RuntimeException("TODO");
+			break;case pop64:
+				if(1<2) throw new RuntimeException("TODO");
+			break;case pop64k:
+				if(1<2) throw new RuntimeException("TODO");
+			break;case pop64m:
+				if(1<2) throw new RuntimeException("TODO");
+			break;case pushIsVerifiedOrNot:
+				if(1<2) throw new RuntimeException("TODO");
+			break;case ret:
+				if(1<2) throw new RuntimeException("TODO");
+			break;case smite:
+				if(1<2) throw new RuntimeException("TODO");
+			break;case tupleLen:
+				if(1<2) throw new RuntimeException("TODO");
+			}
+		}
+		ip += addToIp;
+	}
+```
 
 Registers in the whole system in a double[], which can be struct-like or number,
 	and maybe some struct-like javascript objects as optimizations of that:
