@@ -2,7 +2,19 @@ package lambdasmiter;
 
 public enum Op{
 	
-	/** does not modify whats on stack top. just reads it and compares its double value to 0 (tuples count as 0 here) */
+	/** does not modify whats on stack top. just reads it and compares its double value to 0 (tuples count as 0 here).
+	<br><br>
+	It jumps if stack top is 0 (or is a tuple, whose double value is always 0).
+	I chose that instead of jump if nonzero, cuz only about 1 in 2^63.99 double values are 0,
+	and jumping tends to cause cache misses (inefficient), so in randomly generated code,
+	I want it to jump less often. All code halts, even if that code is randomly generated,
+	which will be very useful for AI research, and getting ever more strategic,
+	code that thinks about and designs code.
+	BUT maybe Tuple should not return 0 as a double, for that same reason,
+	but I'm concerned that if tuple returns something other than 0 it might interfere with autoboxing optimization.
+	Maybe tuple as a double should return its own length? A constant is less likely to interfere with autoboxing.
+	Maybe it should always return 1? Or Infinity? Certainly not NaN cuz thats often slow.
+	*/
 	jump(1,1,false,false),
 	
 	verifyBytecode(1,1,false,false),
@@ -17,68 +29,28 @@ public enum Op{
 	/** FIXME dont use nulls for ins and outs here? */
 	smite(null,null,false,false),
 	
-	call(null,null,true,false),
-	
-	forkNM(null,null,true,false),
-	
-	/** the lambda S from SKICalculus aka Lx.Ly.Lz.xz(yz),
-	or todo at least a stack based form of it.
-	x = pop(); y = pop(); z = pop(); push(call(call(x,z),call(y,z))); or something like that?
-	but might want the pairakatuplesize2<stuff,bytecode> representation of funcs instead
-	andOr somehow related to this. TODO finish designing it.
+	/**"TODO How SMITE will be detected see comment below"
+	OR, should isSmited be a register similar to isDirty?
+	/*How SMITE will be detected.
+	X is bytecode running now. X puts Y at top of stack (just the 1 top stack index).
+	X's next opcode is CALL.
+	The call ends.
+	X sees either 0 or 1 at top of stack. 1 if it worked as normal. 0 if it was smited.
+	X can either ignore that or use it to JUMP (which jumps if stack top is 0, else goes forward 1 opcode as usual),
+	so X can jump based on if the call was smited or not.
+	If its 0 then [if allowDirty register is true, then isDirty register is automatically set to true,
+	else !allowDirty so infiniteloop/smite X which the caller of X will see 0 meaning X was smited,
+	but only if the caller of X has allowDirty==true (as it can be tightened from true to false but not false to true,
+	deeper in stack)].
 	<br><br>
-	The K/T normally used with S (like in unlambda and occamsfuncer)
-	would be to just read the top, or is it second from top, of stack, or something like that?
+	Example:
+	Top 5 things on stack: [0 1 0 1 complexNumMultiply] --CALL--> [-1 0 0 0 didTheCallWork]
+	where didTheCallWork is 0 if was smited or is 1 if worked, so hopefully its [-1 0 0 0 1]
+	then pop3 to get [-1 0] aka the complexNumber -1 cuz sqrt(-1)*sqrt(-1)=-1.
 	<br><br>
-	Together these are turingComplete, and will be very useful for organizing the more optimized lambdas
-	that are functions of tuple to tuple.
-	<br><br>
-	But I might still want a form of pairakatuplesize2<stuff,bytecode> of these basic parts of lambdas.
-	<br><br>
-	WARNING: the S lambda is the main reason occamsfuncer needs the very expensive dedup.
-	*
-	S(3,1,true,false),
+	Its a natural place to put the didTheCallWork bit since it goes the same place the function was.
 	*/
-	FIXME if this is an op, then it has to be designed very carefully similar to the CALL and forkNM ops
-	cuz it is subject to halting problem, while most ops have a cost limited by either constant or at worst stack size.
-	So maybe S should be derived from call, using bytecode, to not complicate the VM.
-	But its extremely useful, combined with K/T its turing complete, so maybe its worth that complexity.
-	But S is normally used with either 0 1 or 2 lambdas curried with it, and it only does interesting things
-	on the third curry, so maybe pairakatuplesize2<stuff,bytecode> is the most natural form for it,
-	where "stuff" would contain those 0 1 or 2 curried lambdas (or other tuple kind of optimized lambdas).
-	I want S etc so I can dragAndDrop lambda onto lambda to find/create lambda instead of having
-	to think about stack and tuples. I want to use the system as if its made only of lambdas
-	that curry 1 thing at a time and return 1 thing, leaving tuples as optimizations or stuff deeper
-	inside those simpler lambdas.
-	They are the high level thoughts to organize the low level number crunching.
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	//ops that have bigO of at worst stack size (most of them have bigO of constant) below...
-	
-	copyStackTopToMidStack(null,null,false,false),
-	
-	copyHeapToStack(null,null,false,false),
-	
-	/** FIXME I was about to write ins=null and outs=1 cuz it copies a range of stack to 1 new tuple on top of stack,
-	but that seems to imply that stack height is reduced by 1-varSize, but stack height instead increases by 1.
-	*/
-	copyStackToHeap(null,null,false,false),
-	//lsmOpPushFromMidStack, is this the same as lsmOpPushFromMidStack?
-
-	pair(2,1,false,false),
-	
-	//TODO various lsmOps for 32 bit logic, including and or not xor >> >>> << rotate nand nor minority majority
-	
-	//TODO various lsmOps for 32 bit arithmetic such as plus mult negate mod etc, which may be optimized in Int32Array in js
-	
-	nandOf2Bits(2,1,false,false),
+	callWithoutTighten(null,null,true,false),
 	
 	/** tightenConstraintsDeeperOnStack.
 	The constraints this tightens any or all of are:
@@ -116,7 +88,7 @@ public enum Op{
 	and when those return (either normally or by running out of gas), the constraints at this stack height
 	are back to how they were before the call, but only below VM.lsp cuz stack[lsp..hsp] may have been modified,
 	and in pure lambda math that is modelled as whats here on stack is whatever that deeper call returned,
-	even if it didnt get all its work done, like a mutable range of 1 million Nummbers can be read and written
+	even if it didnt get all its work done, like a mutable range of 1 million Numbers can be read and written
 	by deeper calls, and each of those calls is modelled as a function of 1 million Numbers to 1 million Numbers,
 	which this current calculation being done on stack is replaced by it similar to lispProgn.
 	This current calculation can be reproduced by things which occurred either earlier or lower than lsp on stack.
@@ -130,8 +102,39 @@ public enum Op{
 	<br><br>
 	TODO I'm undecided if this should happen in the CALL and FORKMN opcodes,
 	vs if it should be a separate opcode.
-	*/
+	*
 	tighten(TODO...),
+	*/
+	callAndTighten(null,null,true,false),
+	
+	forkNM(null,null,true,false),
+	
+	
+	
+	
+	
+	
+	
+	
+	//ops that have bigO of at worst stack size (most of them have bigO of constant) below...
+	
+	copyStackTopToMidStack(null,null,false,false),
+	
+	copyHeapToStack(null,null,false,false),
+	
+	/** FIXME I was about to write ins=null and outs=1 cuz it copies a range of stack to 1 new tuple on top of stack,
+	but that seems to imply that stack height is reduced by 1-varSize, but stack height instead increases by 1.
+	*/
+	copyStackToHeap(null,null,false,false),
+	//lsmOpPushFromMidStack, is this the same as lsmOpPushFromMidStack?
+
+	pair(2,1,false,false),
+	
+	//TODO various lsmOps for 32 bit logic, including and or not xor >> >>> << rotate nand nor minority majority
+	
+	//TODO various lsmOps for 32 bit arithmetic such as plus mult negate mod etc, which may be optimized in Int32Array in js
+	
+	nandOf2Bits(2,1,false,false),
 	
 	//FIXME maybe ops should use the 24 extra bits, other than the 8 bits to choose op type,
 	//to choose how much to pop or push all 0s, instead of having log number of some op types in this enum.
@@ -270,3 +273,38 @@ public enum Op{
 	}
 	
 }
+//////////////
+
+
+
+/** the lambda S from SKICalculus aka Lx.Ly.Lz.xz(yz),
+or todo at least a stack based form of it.
+x = pop(); y = pop(); z = pop(); push(call(call(x,z),call(y,z))); or something like that?
+but might want the pairakatuplesize2<stuff,bytecode> representation of funcs instead
+andOr somehow related to this. TODO finish designing it.
+<br><br>
+The K/T normally used with S (like in unlambda and occamsfuncer)
+would be to just read the top, or is it second from top, of stack, or something like that?
+<br><br>
+Together these are turingComplete, and will be very useful for organizing the more optimized lambdas
+that are functions of tuple to tuple.
+<br><br>
+But I might still want a form of pairakatuplesize2<stuff,bytecode> of these basic parts of lambdas.
+<br><br>
+WARNING: the S lambda is the main reason occamsfuncer needs the very expensive dedup.
+*
+S(3,1,true,false),
+*
+FIXME if this is an op, then it has to be designed very carefully similar to the CALL and forkNM ops
+cuz it is subject to halting problem, while most ops have a cost limited by either constant or at worst stack size.
+So maybe S should be derived from call, using bytecode, to not complicate the VM.
+But its extremely useful, combined with K/T its turing complete, so maybe its worth that complexity.
+But S is normally used with either 0 1 or 2 lambdas curried with it, and it only does interesting things
+on the third curry, so maybe pairakatuplesize2<stuff,bytecode> is the most natural form for it,
+where "stuff" would contain those 0 1 or 2 curried lambdas (or other tuple kind of optimized lambdas).
+I want S etc so I can dragAndDrop lambda onto lambda to find/create lambda instead of having
+to think about stack and tuples. I want to use the system as if its made only of lambdas
+that curry 1 thing at a time and return 1 thing, leaving tuples as optimizations or stuff deeper
+inside those simpler lambdas.
+They are the high level thoughts to organize the low level number crunching.
+*/

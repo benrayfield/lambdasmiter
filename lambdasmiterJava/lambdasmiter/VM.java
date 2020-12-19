@@ -26,7 +26,33 @@ public interface VM{
 	as its a tuple of size at least 1 and is normally a pair (tuple size 2).
 	
 	
-	/** funcall(stack[lsp..hsp]) -> stack[lsp..hsp] of same size.
+	/** The param tops... tops.size()>=needMinTupleSize(tops.get(tops.size()-1)),
+	or maybe it should be designed for get(0) to be stack top instead of the last thing in tuple (reverse?).
+	needMinTupleSize is a (todo create that func) function that tells what size of params
+	a Tuple as a UnaryOperator<Tuple> needs. For example, complexNumMultiply needs at least size 5
+	since itself and 4 doubles are the top 5 things on stack,
+	so complexNumMultiply.apply(tuple(0,1,0,1,complexNumMultiply))
+	returns a tuple(-1,0,0,0,0) since sqrt(-1)^2 = -1. It might also leave those 3 things above it
+	instead of overwriting them with 3 padded 0s, but the important thing is the (-1,0).
+	Therefore needMinTupleSize(complexNumMultiply)=5.
+	needMinTupleSize is derived from bytecode by which rel stack indexs it reads and writes,
+	based on the ins and outs sizes in each opcode such as Op.mul pops 2 and pushes 1,
+	but FIXME the *copy* ops, such as copyStackTopToMidStack, depend on hsp-lsp
+	as they will allow the copy whenever the requested range is in the allowed range.
+	Therefore, if a Tuple (used as bytecode) is supposed to have a smaller needMinTupleSize
+	than "whatever biggest range is currently allowed", there needs to be a way to define that
+	in the bytecode. It could, for example, be put in the opcode itself since most opcodes
+	only use 8 bits but are stored in a double, so could take 23 bits above those 8
+	and interpret those 23 bits as needMinTupleSize.
+	Or maybe needMinTupleSize should be something that happens at the start of the bytecode
+	and is pushed onto metastack along with other things Op.tighten handles?
+	I want to keep the bytecode extremely simple and have each opcode be independent of all other opcodes,
+	not having a constant pool or anything like that.
+	needMinTupleSize will be cached in Tuple,
+	similar to those 2 booleans for is it valid bytecode (true false haventcheckedyet),
+	but it has to be calculated the first time.
+	<br><br>
+	funcall(stack[lsp..hsp]) -> stack[lsp..hsp] of same size.
 	stack[hsp] (or is top of stack hsp-1?) is the lambda function aka tuple of bytecode.
 	Calling a function on stack does not change lsp or hsp as viewed
 	before and after the call, but often does change during the call.
@@ -42,7 +68,7 @@ public interface VM{
 	as occamsfuncer has more than just bytecode, it also has a pair forest of curries)
 	since occamsfuncer uses currying instead tuples.
 	*/
-	public Tuple funcall(Tuple stackTop);
+	public Tuple funcall(Tuple tops);
 	
 	/** empties the VM and refills gas.
 	This is normally called once per video frame of a game (such as 1./60 seconds,
@@ -50,7 +76,8 @@ public interface VM{
 	or whatever this lambdasmiterVM
 	is being used for it interacts with the outside world between each 2 calls of this.
 	*/
-	public void clear(double fillGasUpTo);
+	public void clear(long fillGasUpTo_maxIs2Exponent53);
+	//public void clear(double fillGasUpTo);
 	//TODO put Tuple on stack instead of just emptying it? the counterpart of stack()?
 			
 	/** copies stack to a Tuple, or may be lazyEvaled if find some kind of optimization.
@@ -85,7 +112,50 @@ public interface VM{
 		return dedup(tuple(childs));
 	}
 	
-	public void nextState();
+	/** does next piece of work then returns hasWork() aka is there more work to do in later calls */
+	public boolean nextState();
+	
+	/** Usually is last return value of nextState(), but you might have done push or pop etc since then,
+	or nextState may have never been called since last clear(...) (aka resets the VM).
+	True if theres more work for nextState() to do, so call it again if you want,
+	else just dont do the work, either way the VM doesnt care, like you could clear(...) the VM or continue that work.
+	*/
+	public boolean hasWork();
+	
+	/** These (push pop etc) are potentially unsafe when not done by VM, so just
+	use Tuple as UnaryOperator<Tuple> to call functions on functions to create/find functions,
+	and let VM handle the details and optimizations.
+	
+	/** param is double or Tuple. FIXME what happens if stack gets full?
+	Copy it to a stack twice as big? Or use gas to make it ever more expensive to push things as it gets fuller
+	so it will always run out of gas before running out of stack?
+	*
+	public void push(Number n);
+	*/
+	
+	/** returns double or Tuple. FIXME what if stack is empty? *
+	public Number pop();
+	
+	/** returns double or Tuple. FIXME what if stack is empty? *
+	public Number peek();
+	*/
+	
+	/** does the CALL opcode, which is same as using Tuple as UnaryOperator<Tuple> on the Tuple returned by stack(),
+	except does not copy the stack to a Tuple before (for param of UnaryOperator) or after (the stack after UnaryOperator acts on it,
+	what the UnaryOperator would return except thats just down to lsp, below which that function call is independent of.
+	TODO easy way to set gas without clear(double) the whole VM?
+	FIXME this is only allowed if nextState() has no more work to do (is halted, nothing below to return to,
+	the whole contents of stack below are what the outermost call returned the stack stays that way until given further work).
+	*
+	public void call(){
+		TODO
+	}*/
+	
+	/*I dont know how to do this without it being in a Tuple of bytecode since it might recurse and not know where to return back to,
+	so just let that be handled inside VM, and instead just provide a CALL op, which is all the user of a VM needs to do
+	after pushing things onto stack to start the first call.
+	public void unsafe_doOp(double opcode);
+	*/
 	
 	/** all opcode types except when an opcode is a nonnegative double
 	it pushes itself onto stack. All other opcodes are negative doubles.

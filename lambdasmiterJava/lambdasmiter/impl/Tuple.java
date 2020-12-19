@@ -14,6 +14,13 @@ Every node is a double or a tuple/list of nodes. As bytecode, its unusual in tha
 but is not always turing complete as that means it would allow infinite compute cycles and memory.
 Its timing precision will be around a microsecond for greenthreads, around .01 second for OS threads.
 <br><br>
+How to use Tuple as UnaryOperator<Tuple>, a pure stateless lambda, is explained in comment of Op.tighten.
+Basically the input and output tuples are stack[lsp..hsp] or stack[x..hsp]
+where x>lsp and hsp-x>=minTupleSizeOfParamAndReturn(thisTupleAsBytecode).
+An example with complexNumMultiply (a theoretical Tuple of bytecode) is explained there.
+But the most efficient way to use Tuple bytecode is with the mutable stack optimization
+and only start the outermost (lowest on stack) call using UnaryOperator<Tuple>.
+<br><br>
 As UnaryOperator<Tuple>, the param is stack[lsp..hsp],
 and return is stack[lsp..hsp] of equal size after it finishes,
 so use of a stack is only an optimization of this pure functional lambda system,
@@ -85,6 +92,13 @@ public final class Tuple extends Number implements List<Number>, UnaryOperator<T
 	
 	/** starts false. becomes true when verify this as bytecode to use as a lambda and verify deterministicly says no. */
 	private boolean cache_isCertainlyFailedVerify;
+	
+	/** is always at least 1, so starts as 0 and is calculated once when and if cache_isCertainlyVerified becomes true.
+	As UnaryOperator<Tuple>, any param of at least this size will work (though may still infinite loop and run out of gas etc),
+	and the returned Tuple is always same size as the param Tuple. Also, any smaller Tuple is technically allowed
+	but will not run the bytecode, will instead return some constant or smite itself etc (todo choose a design).
+	*/
+	private int cache_needMinTupleSize;
 	
 	//TODO merge isCertainlyVerified and isCertainlyFailedVerify into 1 var?
 	

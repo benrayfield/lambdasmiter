@@ -1,72 +1,109 @@
 package lambdasmiter.impl;
-
 import java.util.Arrays;
-
-import lambdasmiter.Op;
-import lambdasmiter.VM;
+import java.util.List;
+import lambdasmiter.*;
 
 public strictfp class SimpleVM implements VM{
-	
-	/** low stack pointer, below highSp */
-	private int lsp;
-	
-	/** normal/high stack pointer */
-	private int hsp;
 	
 	/** instruction pointer. points into a tuple. if op is CALL then wherever it is in that tuple,
 	it jumps from there to the next tuple pushed above it (probably in some other stack than the main stack, todo design),
 	starting at index 0 in that next higher tuple, and (todo get rid of op RETURN?) and instead it returns when at
 	the last index in that next higher tuple, pops that tuple, and continues at the same index in the first tuple.
-	Gas, minGas, lsp, hsp, etc must be tracked considered in that secondary stack, especially if its smited
+	Gas, lgas, lsp, hsp, etc must be tracked considered in that secondary stack, especially if its smited
 	aka gives up early due to not enough gas, and considering that opForkMN can recursively fork the stack,
 	and from each fork can fork again in different turingComplete ways, so forking needs to be considered too,
 	though I might just start with optimizing just 1 level of forking such as is good enough for GPU matmul
 	or computing pixels of 3d fractals etc.
 	*/
-	private int ip;
+	protected int ip;
 	
-	/** FIXME in opForkMN, gas-lowGas must be split N ways equally between N parallel calls */
-	private double gas, lowGas;
-	
-	/** contains Tuple and java.lang.Double to use autoboxing optimization. No nulls. */
-	private final Number[] stack;
-	
-	/** stack.length-1, where stack.length is a powOf2.
-	I'm undecided if will use this vs if just check for IndexOutOfBoundsException,
-	and I dont want to create bugs where something out of range can overwrite
-	something in a valid range.
-	*
-	private final int stackMask;
+	/** high stack pointer. constack.lsp <= hsp, and in the simplest case you only need those 2 (not the 4) vars:
+	or when using Op.forkMN (and maybe all the time? todo choose design) theres 2 more kinds stack pointers:
+	<br><br>
+	lspRead <= lspReadwrite <= hsp <= ksp.
+	<br><br>
+	numstack[lspRead..lspReadwrite] is read only and can be read by many threads.
+	<br><br>
+	numstack[lspReadwrite..hsp] is memory local to a thread (like opencl ndrange private memory depending on get_global_id)
+		and can be read and written by that thread without any of the other threads seeing it as they have their own memory.
+	<br><br>
+	numstack[hsp..ksp] is memory not yet allocated but can be allocated by pushing things onto numstack,
+		 but only allowed to push up to ksp. ksp can decrease (in callAndTighten) but not increase,
+		 until return to where it was already higher.
+	<br><br>
+	Below lspRead and above ksp, are not allowed to read or write, except after return the constraints may be looser.
 	*/
+	private int hsp;
 	
-	/** top function in the <int,int,node> stack, or something like that <...whatgoeshere?...>
+	/** function stack pointer. funstack[fsp] is function at top of function stack.
+	funstack[fsp].get(0) is bytecode.
+	funstack[fsp].get(1) is other data stored in function, such as curried params but could be anything.
+	*/
+	protected int fsp;
+	
+	/** Amount of compute resources available for this VM session, which is between each 2 consecutive calls of VM.clear(long).
+	constack.lgas<=gas. In Op.forkNM, each of N threads gets floor((gas-lgas)/N) gas,
+	which means lgas increases so that gas-lgas equals that.
+	Those may be greenThreads (can run in a single OS thread) or OS threads or GPU threads or any kind of parallel.
+	*/
+	protected long gas;
+	
+	/** number stack. contains Tuple and java.lang.Double to use autoboxing optimization. No nulls. */
+	protected final Number[] numstack;
+	
+	/** constraint stack. Top of constraint stack, which is only changed at the start and end of Op.tighten
+	(or TODO it might be callAndTighten, as compared to callWithoutTighten which doesnt change constraints)
+	*/
+	protected Constraint constack;
+	
+	/** stack of functions, which are any tuple of size at least 2. See comment of cache_bytecode for details. */
+	protected final Number[] funstack;
+	
+	/** Same as funstack[fsp].get(0), the bytecode of the top function on the stack.
+	funstack[fsp].get(1) is other data in that function such as curried params or could be anything,
+	any way you might design bytecode to use that data. Remember, code and data are both Number,
+	and Number is either double or list of Number, and Number is immutable.
+	<br><br>
+	top function in the <int,int,node> stack, or something like that <...whatgoeshere?...>
 	which ip points into.
 	FIXME need stack of these cuz lambda calling lambda happens on stack when opCALL andOr when opForkMN.
+	*
+	protected Tuple bytecode;
+	FIXME functions will be represented as tuple(bytecodeTuple,data) aka pair of those 2 things,
+	since to represent lambdas currying params, accumulating data other than their bytecode,
+	they need a place to store that other than in the stack,
+	so you can for example call a lambda on a lambda to find/create a lambdas,
+	such as (S I I) is a lambda that calls its param on itself.
+	But this "Tuple bytecode" var is still a good optimization, and just replace it with
+	topFunctionOnStack.get(0) whenever topFunctionOnStack changes.
+	<br><br>
+	TODO bytecode verify fails if its not all made of doubles. Or should bytecode be able to push a literal tuple
+	like it pushes a literal double, which a tuple viewed by Number.doubleValue() is a nonnegative double
+	(todo choose a design, such as is it always 0, always 1, or always tuple size?).
 	*/
-	private Tuple bytecode;
+	protected List<Double> cache_bytecode;
+	
+	/** same as constack.lsp *
+	protected int cache_lsp;
+	*/
+	
 	
 	/** becomes true if any nondeterminism happens, such as reading amount of gas available,
 	or such as running out of gas and catch/else to whatever to do if run out of gas at that point in stack,
 	BUT just having it ready to catch/else if it runs out of gas, but not running out of gas, is deterministic
 	since anyone anywhere in the internet can repeat and verify that calculation if you share the call which led to it.
 	*/
-	private boolean dirty = false;
-	
-	/** starts true at bottom of stack, and at any point lower on stack can choose to become false (pure determinism)
-	there and everywhere deeper on stack, until return from that, and when cross that border on stack,
-	allowDirty is true again. Like recursive gas limits, this can be done in many recursions in and out differently.
-	When !allowDirty and its about to set dirty to true, it instead evals to (S I I (S I I)) aka a very simple infinite loop,
-	aka smites itself, which causes it to give up on that calculation and back out to
-	the innermost spend (gas limit/catchHaltingProblem) call.
-	Thats the same way it works in occamsfuncer, or at least in some forks of occamsfuncer which are not all
-	merged or complete yet, but the universal function of occamsfuncer is working in the newest for as of 2020-12.
-	*/
-	private boolean allowDirty = true;
+	protected boolean dirty = false;
 	
 	private static final Op[] ops;
 	static{
 		ops = Op.values();
-		if(ops.length > 127) throw new RuntimeException("could go up to 256 but only 128 if using signed byte, cuz am using optimization of cast to byte only instead of cast to byte then &0xff, or could use more of the bits in double (than 7 or 8) for opcode type, but trying to keep it very small, as most languages VMs use a byte for op type. ops.length="+ops.length);
+		if(ops.length > 256) throw new RuntimeException(
+			"For efficiency of CPU cache and predictive assembly instructions preloading and microcode"
+			+" etc (happens automatically when higher level languages are compiled)"
+			+" and simplicity of formal-verification, number of op types must fit in a byte,"
+			+" other than if a double opcode is nonnegative that opcode is pushed onto stack as a literal"
+			+" (and if you want a negative literal nl, use 2 opcodes nl then Op.neg). ops.length="+ops.length);
 	}
 	
 	/** in units of Number, not units of memory
@@ -78,6 +115,8 @@ public strictfp class SimpleVM implements VM{
 	The heap can be any size since its a forest not an array.
 	*/
 	private static final int defaultStackSize = 1<<24;
+	
+	private static final int defaultFunstackSize = defaultStackSize>>2;
 	
 	/** 1<<30 cuz mInteger.MAX_VALUE? or maybe stack size should have to be a powOf2 for mask optimization
 	in which case this would be 1<<30 aka an approx 8gB stack,
@@ -91,14 +130,15 @@ public strictfp class SimpleVM implements VM{
 	private static final int maxPossibleStackSizeIn1Array = 1<<30; //Integer.MAX_VALUE;
 	
 	public SimpleVM(){
-		this(defaultStackSize);
+		this(defaultStackSize, defaultFunstackSize);
 	}
 	
-	public SimpleVM(int stackSize){
+	public SimpleVM(int stackSize, int funstackSize){
 		//stackMask = stackSize-1;
 		if((stackSize&(stackSize-1)) != 0) throw new RuntimeException("stackSize="+stackSize+" is not a powOf2");
-		this.stack = new Number[stackSize];
-		Arrays.fill(stack, 0.);
+		this.numstack = new Number[stackSize];
+		funstack = new Number[funstackSize];
+		Arrays.fill(numstack, 0.);
 	}
 	
 
@@ -106,25 +146,36 @@ public strictfp class SimpleVM implements VM{
 		throw new RuntimeException("TODO copy stackTop onto stackTop, set lsp and hsp, run nextState() in a loop until it returns back to that same size (maybe check for Op.ret as many times as Op.call etc), then return tuple of whats in stack[lsp..hsp] which is the same size of tuple in and out.");
 	}
 	
-	public void clear(double fillGasUpTo){
+	public void clear(long fillGasUpTo){
 		if(fillGasUpTo > VM.maxPossibleGas) throw new RuntimeException(
 			"too much gas requested: "+fillGasUpTo+" max allowed is "+VM.maxPossibleGas);
-		//you can, for example, in the first call increase minGas so gas-minGas is a very small amount of gas available,
+		//you can, for example, in the first call increase lgas so gas-lgas is a very small amount of gas available,
 		//but todo find a way to do that without causing dirty==true,
 		//so maybe the amount of gas to set it to should be a param of clear func.
 		//gas = VM.maxPossibleGas;
 		gas = fillGasUpTo;
-		lowGas = 0;
-		Arrays.fill(stack, 0, hsp, 0.);
-		lsp = hsp = 0; //FIXME 1? Or whats on stack when its as empty as it should ever be?
-		//bytecode = emptyTuple; //FIXME should this be 2 doubles: noop and ret? Or just 1: ret?
-		bytecode = tuple(Op.ret.ordinal());
+		funstack[fsp = 0] = pair(tuple(Op.ret.ordinal()),0.); //a function is tuple(bytecode,anyData)
+		cache_bytecode = (List<Double>) get(funstack[fsp],0); //current bytecode is always at funstack[fsp]
 		ip = 0;
 		dirty = false;
+		
+		constack = new Constraint(null, true, 0L, 0, 0); //FIXME lsp and hsp may be offby1?;
+		
+		/*
+		lowGas = 0;
+		Arrays.fill(numstack, 0, hsp, 0.);
+		lsp = hsp = 0; //FIXME 1? Or whats on stack when its as empty as it should ever be?
+		//bytecode = emptyTuple; //FIXME should this be 2 doubles: noop and ret? Or just 1: ret?
+		*/
+	}
+	
+	protected static Number get(Number parent, int childIndex){
+		if(parent instanceof List) return ((List<Number>)parent).get(childIndex);
+		return 0.; //FIXME whats default value for trying to get a child at index that doesnt exist there?
 	}
 	
 	public void nextState(){
-		gas--; //FIXME smite/backOut if gas would go below lowGas, and different ops take different amounts of gas.
+		gas--; "FIXME smite/backOut if gas would go below lowGas, and different ops take different amounts of gas."
 		double opcode = bytecode.get(ip).doubleValue();
 		int addToIp = 1;
 		if(opcode >= 0){ //push that literal double. For negative literal, next opcode should be NEG.
@@ -133,10 +184,11 @@ public strictfp class SimpleVM implements VM{
 			Op op = ops[(byte)opcode];
 			dirty |= op.isDirty;
 			switch(op){
-			case call: //CALL (the lambda on top of stack on the tuple stack[lsp..hsp])
+			case callWithoutTighten: //CALL (the lambda on top of stack on the tuple stack[lsp..hsp]) with current constraint
 				throw new RuntimeException("TODO");
 				
-				
+			case callAndTighten: //CALL (the lambda on top of stack on the tuple stack[lsp..hsp]) and TIGHTEN constraint deeper on stack
+				throw new RuntimeException("TODO");
 				
 			case jump:
 				//If stack
@@ -282,15 +334,30 @@ public strictfp class SimpleVM implements VM{
 	public Tuple dedup(Tuple tuple){
 		throw new RuntimeException("TODO");
 	}
-	
-	/** true if stack top as double is nonzero *
-	protected boolean peekZ(){
-		return stack[hsp].doubleValue()!=0;
-	}*/
-	
-	/** returns 0 or 1 depending if the top of the stack, as double, is nonzero *
-	protected double peekBit(){
-		return stack[hsp].doubleValue()==0 ? 0 : 1;
-	}*/
 
 }
+////////////////////////////////////////
+
+
+
+
+/** true if stack top as double is nonzero *
+protected boolean peekZ(){
+	return stack[hsp].doubleValue()!=0;
+}*/
+
+/** returns 0 or 1 depending if the top of the stack, as double, is nonzero *
+protected double peekBit(){
+	return stack[hsp].doubleValue()==0 ? 0 : 1;
+}*/
+
+
+
+
+/** stack.length-1, where stack.length is a powOf2.
+I'm undecided if will use this vs if just check for IndexOutOfBoundsException,
+and I dont want to create bugs where something out of range can overwrite
+something in a valid range.
+*
+private final int stackMask;
+*/
