@@ -110,6 +110,7 @@ public enum Op{
 	*/
 	callAndTighten(null,null,true,false),
 	
+	/** a kind of call */
 	forkNM(null,null,true,false),
 	
 	

@@ -136,12 +136,90 @@ public interface VM{
 	*/
 	public boolean hasWork();
 	
+	/** is it a tuple of at least size 2 whose first Number isValidBytecode?
+	Every Number is a valid function that will run if called on another function,
+	but not every Number can run bytecode. Invalid bytecode never runs.
+	*/
+	public default boolean isFunctionContainingValidBytecode(Number function){
+		return (function instanceof Tuple) && ((Tuple)function).size()>=2 && isValidBytecode(((Tuple)function).get(0));
+	}
+	
 	//TODO default implementation of this in the VM interface,
 	//OLD... and just call this by super.isValidBytecode to save it in the 2 booleans of caching it in NumberArrayTuple.
 	//If param n is valid bytecode then it is tuple(bytecodeDoubles,anything) or more than size 2 tuple like that,
 	//where bytecodeDoubles contains only doubles (no tuples) and checks things about the specific combo of doubles.
 	//Actually, this will be the function.get(0) which is the bytecodeDoubles.
-	public boolean isValidBytecode(Number n);
+	public default boolean isValidBytecode(Number n){
+		$();
+		if(!(n instanceof Tuple)) return false;
+		Tuple bytecode = (Tuple)n;
+		$(bytecode.size()); //FIXME pay for memory of int[] (return it to gas at end?) and the compute cycles of this linear pass through it
+		if(bytecode.size() == 0) return false; //smallest valid bytecode is size 1
+		if(bytecode.get(bytecode.size()-1) is not Op.ret) return false;
+		if(bytecode.size() > VM.maxPossibleBytecodeLen) return false;
+		int[] relStackHeight = new int[bytecode.size()];
+		//Each opcode at an index (opcodeIndex) jumps to 2 possible indexs (dont actually need to compute the % but in abstract math
+		//to make sure the directedGraph is closed):
+		//(opcodeIndex+1)%bytecode.size() or opcodeIndex+getRelJump(bytecode.get(opcodeIndex))
+		//where getRelJump returns a signed int23 (or int22? or exactly how big?) and both of those must be in 0..bytecode.size()-1,
+		//and last opcode must be Op.ret, and considering lsp and hsp.
+		//Does not verify gas cuz thats enforced in VM.nextState(). Might create halting problem paradoxes to do it in the lambda itself?
+		//Either way, its probably far more efficient and secure to compute it in nextState(),
+		//but the main reason to do it in nextState is it allows different optimizations to charge different amounts of gas
+		//for the same calculation, such as GPU vs CPU vs many CPUs in parallel vs number crunching clouds
+		//vs you could even in theory compute it on pen and paper its so simple
+		//and run a lambdasmiterVM through the snailmail or on a bunch of USB memory sticks people exchange
+		//in person for example if the whole internet were to go down the networking layer still would exist in usb sticks,
+		//though in that case would probably want to use a less expensive secureHash algorithm to generate ids than sha3_256
+		//for example, which you can use whatever algorithm you like or multiple algorithms since an id generator
+		//is just another function derived within the system that looks at another function and returns a bitstring (a function)
+		//that some people or computers may choose to use as an id, if they believe its secure against hash collisions.
+		for(int opcodeIndex=0; opcodeIndex<relStackHeight.length-1; opcodeIndex++){ //the ip++ jump (or say it as lack of a jump)
+			Number opcodeNumber = bytecode.get(opcodeIndex);
+			//If you want literal tuples, put them somewhere inside function.get(1). Bytecode goes in function.get(0).
+			if(!(opcodeNumber instanceof Double)) return false;
+			double opcode = bytecode.get(opcodeIndex).doubleValue();
+			int ins = opIns(opcode), outs = opOuts(opcode), changeInStackHeight = outs-ins;
+			relStackHeight[opcodeIndex+1] = relStackHeight[opcodeIndex]+changeInStackHeight; 
+		}
+		//FIXME verify "push and pop an int23 amount"
+		for(int opcodeIndex=0; opcodeIndex<relStackHeight.length; opcodeIndex++){
+			//the opcodeIndex+getRelJump(bytecode.get(opcodeIndex)) jump which happens if numstack to is 0 when Op.jump, else ip++.
+			double opcode = bytecode.get(opcodeIndex).doubleValue();
+			int jumpToOpcodeIndex = opcodeIndex+getRelJump(opcode);
+			int correctStackHeigtA = relStackHeight[jumpToOpcodeIndex]; //computed in the "ip++ jump" loop
+			int ins = opIns(opcode), outs = opOuts(opcode), changeInStackHeight = outs-ins;
+			int correctStackHeightB = relStackHeight[opcodeIndex]+changeInStackHeight;
+			if(correctStackHeigtA != correctStackHeightB) {
+				//2 paths found to jumpToOpcodeIndex which sum different stack heights by their sequences of opcodes
+				//each as outs-ins. TODO also check lsp.
+				return false;
+			}
+		}
+		
+		//FIXME is NaN and -Infinity allowed? Dont want to check for NaN (opcode!=opcode) cuz its slow,
+		//and (todo verify) i dont think it will hurt anything to have nans as long as can still cast it to int (todo verify).
+		//FIXME must be able to push a literal NaN onto stack,
+		//though could just create an opcode to do that or push 2 0s and divide them.
+		
+		//FIXME few more things to check, but those 2 loops are the slowest part
+		//(or maybe equally slow, a few more loops or things to do in those loops).
+		return true;
+	}
+	
+	public default int getRelJump(double opcode){
+		return (((int)opcode)<<1)>>9; //signed int23 just above the low byte,
+		//which will be used as rel jump here, or other things for opcodes other than Op.jump, such as push and pop an int23 amount.
+	}
+	
+	/** this is abstract only cuz it needs a cache of Op[256] from Op.values() to be efficient */
+	public abstract boolean changeInStackHeight(double opcode);
+	
+	/** this is abstract only cuz it needs a cache of Op[256] from Op.values() to be efficient */
+	public abstract int opOuts(double opcode);
+	
+	/** this is abstract only cuz it needs a cache of Op[256] from Op.values() to be efficient */
+	public int opIns(double opcode);
 	
 	/** These (push pop etc) are potentially unsafe when not done by VM, so just
 	use Tuple as UnaryOperator<Tuple> to call functions on functions to create/find functions,

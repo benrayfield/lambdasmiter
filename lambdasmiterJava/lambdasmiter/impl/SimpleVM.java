@@ -107,7 +107,25 @@ public strictfp class SimpleVM implements VM{
 			+" etc (happens automatically when higher level languages are compiled)"
 			+" and simplicity of formal-verification, number of op types must fit in a byte,"
 			+" other than if a double opcode is nonnegative that opcode is pushed onto stack as a literal"
-			+" (and if you want a negative literal nl, use 2 opcodes nl then Op.neg). ops.length="+ops.length);
+			+" (and if you want a negative literal nl, use 2 opcodes -nl then Op.neg). ops.length="+ops.length);
+	}
+	
+	public boolean changeInStackHeight(double opcode){
+		if(opcode >= 0) return 1; //push opcode onto numstack
+		Op op = ops[(byte)opcode];
+		return op.outs-op.ins;
+	}
+	
+	public int opOuts(double opcode){
+		if(opcode >= 0) return 1; //push opcode onto numstack
+		Op op = ops[(byte)opcode];
+		return op.outs-op.ins;
+	}
+	
+	public int opIns(double opcode){
+		if(opcode >= 0) return 1; //push opcode onto numstack
+		Op op = ops[(byte)opcode];
+		return op.ins;
 	}
 	
 	/** in units of Number, not units of memory

@@ -11,6 +11,7 @@ import java.util.function.UnaryOperator;
 import javax.tools.Tool;
 
 import lambdasmiter.Tuple;
+import lambdasmiter.VM;
 
 /** immutable, except the 2 booleans that say its verified bytecode or not or unknown either way.
 Every node is a double or a tuple/list of nodes. As bytecode, its unusual in that it ALWAYS HALTS
@@ -122,7 +123,14 @@ public final class NumberArrayTuple extends Tuple{
 	public boolean isValidBytecode(){
 		if(cache_isCertainlyVerified) return true;
 		if(cache_isCertainlyFailedVerify) return false;
-		throw new RuntimeException("TODO verify (see SimpleVM.nextState opVerify, which should call this, then cache in 1 of those 2 booleans");
+		boolean isValid = super.isValidBytecode(); //FIXME thats in VM. should Tuple know which VM its part of? I'd prefer it not have to.
+		if(isValid) cache_isCertainlyVerified = true;
+		else cache_isCertainlyFailedVerify = true;
+		return isValidBytecode();
+		
+		//throw new RuntimeException("TODO verify (see SimpleVM.nextState opVerify, which should call this, then cache in 1 of those 2 booleans");
+		
+		
 		//its verified if from tuple[0] to tuple[tuple.length-1], every double's int23 (above the low byte)
 		//at tuple[i] is i+int23 (signed int23) and that is in range 0 to tuple.length-1,
 		//and all paths in that where each index branches to 1 or 2 other indexs,
