@@ -1,9 +1,10 @@
+/** Ben F Rayfield offers lambdasmiter opensource MIT license */
 package lambdasmiter.impl.test;
 
 import java.util.Arrays;
 import java.util.Random;
 
-import lambdasmiter.impl.Tuple;
+import lambdasmiter.impl.NumberArrayTuple;
 
 public class TestDoubleVsTupleSpeed{
 	
@@ -25,7 +26,7 @@ public class TestDoubleVsTupleSpeed{
 						for(int j=0; j<childs.length; j++){
 							childs[j] = stack[rand.nextInt(i)];
 						}
-						stack[i] = new Tuple(childs);
+						stack[i] = new NumberArrayTuple(childs);
 					}
 				}
 				
@@ -62,7 +63,7 @@ public class TestDoubleVsTupleSpeed{
 	}
 	
 	public static Number child(Number parent, int index){
-		return (parent instanceof Tuple) ? ((Tuple)parent).get(index) : 0.;
+		return (parent instanceof NumberArrayTuple) ? ((NumberArrayTuple)parent).get(index) : 0.;
 	}
 
 }

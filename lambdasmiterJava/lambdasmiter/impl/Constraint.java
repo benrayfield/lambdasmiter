@@ -1,3 +1,4 @@
+/** Ben F Rayfield offers lambdasmiter opensource MIT license */
 package lambdasmiter.impl;
 
 /**
@@ -123,13 +124,23 @@ public final class Constraint{
 	but for efficiency in java long is faster than double, and gas is always an integer even if its stored in a double
 	to avoid counterfeiting it by intentional roundoff.
 	*/
-	private final long lgas;
+	public final long lgas;
 	
-	/** lsp <= hsp.
+	/** The lsp is valid here, but hsp is only what hsp was when the constraint was pushed,
+	and the newest value of hsp is in SimpleVM.hsp which changes with nearly every op.
+	On the other hand, Constraint can be pushed/popped for example 1000 times less often than hsp and function calls,
+	or a million times less often, or nearly every time near equally often, depending on what function is running,
+	which is an important design since createing a java object (Constraint) would limit it to a few million ops
+	per second, vs hundreds of millions in CPU or trillions in GPU reusing the same top Constraint
+	and caches of some of the vars in it (such as to cache lsp and allowDirty in SimpleVM
+	instead of looking in the top Constraint object for lsp and allowDirty).
+	<br><br>
+	lsp <= hsp.
+	<br><br>
 	and (todo choose a design, or only for use in forkMN) might also be these 2 more vars:
 	lspRead <= lspReadwrite <= hsp <= ksp (fixme might be offby1 etc).
 	*/
-	private final int lsp, hsp;
+	public final int lsp, hsp;
 	
 	public Constraint(Constraint prev, boolean allowDirty, long lgas, int lsp, int hsp){
 		this.prev = prev;

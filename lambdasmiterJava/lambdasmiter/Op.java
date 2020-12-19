@@ -1,3 +1,4 @@
+/** Ben F Rayfield offers lambdasmiter opensource MIT license */
 package lambdasmiter;
 
 public enum Op{
@@ -17,7 +18,7 @@ public enum Op{
 	*/
 	jump(1,1,false,false),
 	
-	verifyBytecode(1,1,false,false),
+	verifyFunctionContainingBytecode(1,1,false,false),
 	
 	pushGas(0,1,false,true),
 	
@@ -47,6 +48,8 @@ public enum Op{
 	Top 5 things on stack: [0 1 0 1 complexNumMultiply] --CALL--> [-1 0 0 0 didTheCallWork]
 	where didTheCallWork is 0 if was smited or is 1 if worked, so hopefully its [-1 0 0 0 1]
 	then pop3 to get [-1 0] aka the complexNumber -1 cuz sqrt(-1)*sqrt(-1)=-1.
+	(TODO should it be real imaginary, or imaginary real? probably real imaginary since thats how most people write it.
+	and, i did it both ways in the example above, fix it)
 	<br><br>
 	Its a natural place to put the didTheCallWork bit since it goes the same place the function was.
 	*/
@@ -269,6 +272,7 @@ public enum Op{
 	Op(Integer ins, Integer outs, boolean isTuring, boolean isDirty){
 		this.ins = ins;
 		this.outs = outs;
+		this.isTuring = isTuring;
 		this.isDirty = isDirty;
 	}
 	

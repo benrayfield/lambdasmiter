@@ -1,9 +1,16 @@
+/** Ben F Rayfield offers lambdasmiter opensource MIT license */
 package lambdasmiter;
-
-import lambdasmiter.impl.Tuple;
 
 public interface VM{
 	
+	/*Progress toward it (but not compiling yet 2020-12-19) wont leave anyone confused what its meant to be,
+	this design: A function is a tuple of size at least 2,
+	where tuple.get(0) is a list of double (if contained other tuples, would not pass bytecode verify),
+	and tuple.get(1) is any data such as curried params of that function.
+	If opcodes want to see that tuple.get(1) or anything else in the function,
+	they can get the function itself from top of stack (at time function call starts, after which it may overwrite that).
+	..
+	OLD:
 	FIXME, for a lambda to accumulate data inside it,
 	need it to be pair of something and tupleOfBytecode,
 	or could define tupleOfBytecode's first index to be that something
@@ -24,6 +31,7 @@ public interface VM{
 	Put the bytecode at VM.bytecodeAtTopOfMetastack[0],
 	and there may or may not be a VM.bytecodeAtTopOfMetastack[1] and [2] and so on,
 	as its a tuple of size at least 1 and is normally a pair (tuple size 2).
+	*/
 	
 	
 	/** The param tops... tops.size()>=needMinTupleSize(tops.get(tops.size()-1)),
@@ -88,6 +96,12 @@ public interface VM{
 	*/
 	public Tuple stack();
 	
+	/** same as $(1). Easier to optimize. */
+	public default void $(){ $(1L); }
+	
+	/** pay this much gas else smite. todo check by if/else vs throw a constant RuntimeException (in a final var)? */
+	public void $(long payGas);
+	
 	/** lazyDeduped or perfectDedupedInstantly. Not deduping at all would
 	probably create alot of problems like it does in occamsfuncer but I'm
 	not sure since it can share vars on mutable stack temporarily.
@@ -121,6 +135,13 @@ public interface VM{
 	else just dont do the work, either way the VM doesnt care, like you could clear(...) the VM or continue that work.
 	*/
 	public boolean hasWork();
+	
+	//TODO default implementation of this in the VM interface,
+	//OLD... and just call this by super.isValidBytecode to save it in the 2 booleans of caching it in NumberArrayTuple.
+	//If param n is valid bytecode then it is tuple(bytecodeDoubles,anything) or more than size 2 tuple like that,
+	//where bytecodeDoubles contains only doubles (no tuples) and checks things about the specific combo of doubles.
+	//Actually, this will be the function.get(0) which is the bytecodeDoubles.
+	public boolean isValidBytecode(Number n);
 	
 	/** These (push pop etc) are potentially unsafe when not done by VM, so just
 	use Tuple as UnaryOperator<Tuple> to call functions on functions to create/find functions,

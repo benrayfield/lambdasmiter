@@ -1,3 +1,4 @@
+/** Ben F Rayfield offers lambdasmiter opensource MIT license */
 package lambdasmiter;
 
 public class TestAnyLambdasmiterVM{

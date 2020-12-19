@@ -1,3 +1,4 @@
+/** Ben F Rayfield offers lambdasmiter opensource MIT license */
 package lambdasmiter.impl;
 import java.util.Arrays;
 import java.util.List;
@@ -80,6 +81,9 @@ public strictfp class SimpleVM implements VM{
 	TODO bytecode verify fails if its not all made of doubles. Or should bytecode be able to push a literal tuple
 	like it pushes a literal double, which a tuple viewed by Number.doubleValue() is a nonnegative double
 	(todo choose a design, such as is it always 0, always 1, or always tuple size?).
+	<br><br>
+	TODO optimize this by getting the Number[] (all doubles, else would not pass bytecode verify)
+	out of NumberArrayTuple?
 	*/
 	protected List<Double> cache_bytecode;
 	
@@ -174,9 +178,10 @@ public strictfp class SimpleVM implements VM{
 		return 0.; //FIXME whats default value for trying to get a child at index that doesnt exist there?
 	}
 	
-	public void nextState(){
-		gas--; "FIXME smite/backOut if gas would go below lowGas, and different ops take different amounts of gas."
-		double opcode = bytecode.get(ip).doubleValue();
+	public boolean nextState(){
+		$(); //FIXME pay more in some ops that copy a variable size range or other variable but limited to bigO of some linear part of stack.
+		//gas--; //"FIXME smite/backOut if gas would go below lowGas, and different ops take different amounts of gas."
+		double opcode = cache_bytecode.get(ip).doubleValue();
 		int addToIp = 1;
 		if(opcode >= 0){ //push that literal double. For negative literal, next opcode should be NEG.
 			pushD(opcode);
@@ -224,16 +229,24 @@ public strictfp class SimpleVM implements VM{
 			break;case copyStackTopToMidStack:
 				if(1<2) throw new RuntimeException("TODO optimize by doing infloop or noop or return constant from here");
 			break;case pushGas: //WARNING: NONDETERMINISTIC, so mark that nondeterminism happened from here on
-				pushD(gas-lowGas);
+				pushD(gas-constack.lgas);
 				dirty = true;
-			break;case verifyBytecode: //verify bytecode at top of stack and push 0 or 1 on stack if it fails vs passes.
+			break;case verifyFunctionContainingBytecode: //verify (function containing) bytecode at top of stack and push 0 or 1 on stack if it fails vs passes.
 				//This will happen automatically the first time, then cache it, for each tuple called as a lambda.
-				//See Tuple.cache_isCertainlyVerified and Tuple.cache_isCertainlyFailedVerify.
-				Number n = pop();
+				//See NumberArrayTuple.cache_isCertainlyVerified and NumberArrayTuple.cache_isCertainlyFailedVerify.
+				//If this returns 0 (is not valid bytecode), its still a valid function but just doesnt run the bytecode when called
+				//and instead does some default behavior (todo choose a design, maybe return 0, or smite,
+				//or identityFunc, or return itself, or noop, etc???).
+				pushD(isFunctionContainingValidBytecode(pop()) ? 1 : 0);
+				
+				
+				/*Number n = pop();
 				//returns isValidBytecode from cache if not the first time
 				boolean verify = (n instanceof Tuple) ? ((Tuple)n).isValidBytecode() : false;
 				pushD(verify ? 1 : 0);
 				//if(1<2) throw new RuntimeException("TODO");
+				*/
+				
 			/*opForkMN
 			
 			break;case 'E':
@@ -303,35 +316,56 @@ public strictfp class SimpleVM implements VM{
 			}
 		}
 		ip += addToIp;
+		return hasWork();
 	}
 	
+	/** anything else just does some default behavior, maybe return 0 or smite (todo choose design),
+	so every Number is a valid function, but not every Number is a nontrivial function (runs bytecode).
+	*/
+	public boolean isFunctionContainingValidBytecode(Number function){
+		return (function instanceof Tuple) && isValidBytecode(((Tuple)function).get(0));
+	}
 	
-	
+	public boolean isValidBytecode(Number n){
+		return (n instanceof Tuple) && ((Tuple)n).isValidBytecode();
+	}
 	
 	protected void pushD(double d){
-		stack[hsp++] = d;
+		numstack[hsp++] = d;
 	}
 	
 	protected double popD(){
-		return stack[hsp--].doubleValue();
+		return numstack[hsp--].doubleValue();
 	}
 	
 	protected double peekD(){
-		return stack[hsp].doubleValue();
+		return numstack[hsp].doubleValue();
 	}
 	
 	protected Number pop(){
-		return stack[hsp--];
+		return numstack[hsp--];
 	}
 	
 	public final Tuple emptyTuple = tuple();
 	
 	public Tuple tuple(Number... childs){
 		//FIXME do lazy dedup. Or perfect dedup right away (more expensive)?
-		return new Tuple(childs);
+		return new NumberArrayTuple(childs);
 	}
 
 	public Tuple dedup(Tuple tuple){
+		throw new RuntimeException("TODO");
+	}
+
+	public Tuple stack(){
+		throw new RuntimeException("TODO");
+	}
+
+	public boolean hasWork(){
+		throw new RuntimeException("TODO");
+	}
+
+	public void $(long payGas){
 		throw new RuntimeException("TODO");
 	}
 
