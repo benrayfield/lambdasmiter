@@ -8,7 +8,27 @@ There will be a variety of realtime interoperable (at gaming-low-lag) lambdasmit
 This is loosely based on a working model of self-modifying computing in occamsfuncer which has testcases working up to calling a derived equals function on itself and what that returns call it on the equals again equals(equals)(equals) it it says true, but occamsfuncer is much harder to optimize than this and I need to get something online. Smites infinite loops at few microseconds time precision instead of the usual multiple seconds that it takes to back out of code that gets out of control.
 Always halts, but is not always turingComplete, but the only turingCompleteness sacrificed is that turingCompleteness says it can use as much memory and compute cycles as it wants, vs in this model of computing, things lower on the stack can further limit the number of compute cycles and amount more of memory allowed in deeper calls on the stack, which can each tighten such limits but cant loosen them, and branch one way or another depending if a call finished normally vs gave up early due to not enough compute resources. Always halts such as within 0.02 seconds if you want it to guarantee halting before the next video frame of a game is displayed.
 
+LambdasmiterVMs can in theory continue operating on USB sticks shared in person and plugging any random 2 of them together in the same computer, in many combos similar to a liquid mixing, even if the entire internet goes down, even if every single piece of tech on the planet is destroyed and we are living back in the days of cavemen, lambdasmiterVM could in theory run on pen and paper its so simple, or drawings on cave walls, though very very slow, but much faster than any other system that I'm aware of could run on cave paintings or usb sticks. On the other hand, its bytecode verifier and throwing functions across the internet is planned to be so fast that it is actually affected by time dilation, not during the time of input and output and computing tiny pieces of work in individual devices but making up for that in that the internet is already on the scale of fractions of lightspeed in some cases, such as gamers often feel in many games that light moves 186 miles per millisecond.
+
 ```
+//Each opcode at an index (opcodeIndex) jumps to 2 possible indexs (dont actually need to compute the % but in abstract math
+//to make sure the directedGraph is closed):
+//(opcodeIndex+1)%bytecode.size() or opcodeIndex+getRelJump(bytecode.get(opcodeIndex))
+//where getRelJump returns a signed int23 (or int22? or exactly how big?) and both of those must be in 0..bytecode.size()-1,
+//and last opcode must be Op.ret, and considering lsp and hsp.
+//Does not verify gas cuz thats enforced in VM.nextState(). Might create halting problem paradoxes to do it in the lambda itself?
+//Either way, its probably far more efficient and secure to compute it in nextState(),
+//but the main reason to do it in nextState is it allows different optimizations to charge different amounts of gas
+//for the same calculation, such as GPU vs CPU vs many CPUs in parallel vs number crunching clouds
+//vs you could even in theory compute it on pen and paper its so simple
+//and run a lambdasmiterVM through the snailmail or on a bunch of USB memory sticks people exchange
+//in person for example if the whole internet were to go down the networking layer still would exist in usb sticks,
+//though in that case would probably want to use a less expensive secureHash algorithm to generate ids than sha3_256
+//for example, which you can use whatever algorithm you like or multiple algorithms since an id generator
+//is just another function derived within the system that looks at another function and returns a bitstring (a function)
+//that some people or computers may choose to use as an id, if they believe its secure against hash collisions.
+
+UPDATE to bytecode verifying, see VM.java for half the bytecode verifier already built...
 Bytecode verifying plan[[[
 /** always quickly returns, and even faster from cache if its not the first call */
 public boolean isValidBytecode(){
