@@ -213,7 +213,7 @@ public strictfp class SimpleVM implements VM{
 			case callAndTighten: //CALL (the lambda on top of stack on the tuple stack[lsp..hsp]) and TIGHTEN constraint deeper on stack
 				throw new RuntimeException("TODO");
 				
-			case jump:
+			case jumpIf0:
 				//If stack
 				//jump inside same bytecode. Add to current ip some number inside the bits of the opcode.
 				//get the 23 bits just above the byte op, as signed int23,

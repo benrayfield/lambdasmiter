@@ -9,15 +9,23 @@ public class TestAnyLambdasmiterVM{
 	}
 	
 	public static void testIota(VM vm, Number iota){
-		throw new RuntimeException("TODO");
+		throw new RuntimeException("TODO test with Op.callUnary");
 	}
 	
 	public static void testOccamsfuncer(VM vm, Number occamsfuncer){
-		throw new RuntimeException("TODO");
+		throw new RuntimeException("TODO test with Op.callUnary");
 	}
 	
 	public static void testUrbitnock(VM vm, Number urbitnock){
-		throw new RuntimeException("TODO");
+		throw new RuntimeException("TODO test with Op.callUnary");
+	}
+	
+	public static void testMatmul(VM vm){
+		throw new RuntimeException("TODO test with Op.forkNM");
+	}
+	
+	public static void testSimpleRecursion(VM vm){
+		throw new RuntimeException("TODO test with Op.callWithoutTighten andOr Op.callAndTighten");
 	}
 
 }

@@ -159,6 +159,11 @@ public interface VM{
 		if(bytecode.size() > VM.maxPossibleBytecodeLen) return false;
 		int[] relStackHeight = new int[bytecode.size()];
 		//Each opcode at an index (opcodeIndex) jumps to 2 possible indexs (dont actually need to compute the % but in abstract math
+		//
+		//(though could be redesigned for switch statements by adding whats on top of stack, truncated into a range of integers, to ip,
+		//instead of just using top of stack as 0_or_emptytuple vs nonzero_or_nonemptytuple), and put n opcodes right after the jumpSwitch.
+		//Maybe later after get some testcases working this simpler way? I'll reserve an Op.jumpSwitch in case of that for possible future expansion.
+		//
 		//to make sure the directedGraph is closed):
 		//(opcodeIndex+1)%bytecode.size() or opcodeIndex+getRelJump(bytecode.get(opcodeIndex))
 		//where getRelJump returns a signed int23 (or int22? or exactly how big?) and both of those must be in 0..bytecode.size()-1,
@@ -178,7 +183,7 @@ public interface VM{
 			Number opcodeNumber = bytecode.get(opcodeIndex);
 			//If you want literal tuples, put them somewhere inside function.get(1). Bytecode goes in function.get(0).
 			if(!(opcodeNumber instanceof Double)) return false;
-			double opcode = bytecode.get(opcodeIndex).doubleValue();
+			double opcode = (double)opcodeNumber;
 			int ins = opIns(opcode), outs = opOuts(opcode), changeInStackHeight = outs-ins;
 			relStackHeight[opcodeIndex+1] = relStackHeight[opcodeIndex]+changeInStackHeight; 
 		}

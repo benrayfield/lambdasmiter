@@ -16,7 +16,22 @@ public enum Op{
 	Maybe tuple as a double should return its own length? A constant is less likely to interfere with autoboxing.
 	Maybe it should always return 1? Or Infinity? Certainly not NaN cuz thats often slow.
 	*/
-	jump(1,1,false,false),
+	jumpIf0(1,1,false,false),
+	
+	/** For possible future expansion (instead of just Op.jump which is ip++ or ip+=somethingInsideTheDoubleOpcode)...
+	For now (2020-12), will be implemented as SMITE
+	but if in a future redesign jumpSwitch is implemented, slightly more complex bytecode verify, and it will work instead of necessarily SMITE.
+	<br><br>
+	Quote from VM.isValidBytecode
+	Each opcode at an index (opcodeIndex) jumps to 2 possible indexs (dont actually need to compute the % but in abstract math
+	(though could be redesigned for switch statements by adding whats on top of stack, truncated into a range of integers, to ip,
+	instead of just using top of stack as 0_or_emptytuple vs nonzero_or_nonemptytuple), and put n opcodes right after the jumpSwitch.
+	Maybe later after get some testcases working this simpler way? I'll reserve an Op.jumpSwitch in case of that for possible future expansion.
+	to make sure the directedGraph is closed):
+	(opcodeIndex+1)%bytecode.size() or opcodeIndex+getRelJump(bytecode.get(opcodeIndex))
+	UNQUOTE.
+	*/
+	jumpSwitch(null,null,false,false),
 	
 	verifyFunctionContainingBytecode(1,1,false,false),
 	
@@ -109,6 +124,23 @@ public enum Op{
 	tighten(TODO...),
 	*/
 	callAndTighten(null,null,true,false),
+	
+	/** [param func] (func is on top of stack) --callUnary--> [returnValue didTheCallWork].
+	<br><br>
+	(todo display it as [func param] so its in order of decreasing stack index (display that way everywhere).
+	[func param] --callUnary--> [didTheCallWork returnValue].
+	<br><br>
+	This is used for lambdas that curry params instead of use variable size tuples on stack,
+	such as occamsfuncer, iota, urbitnock, or standard lambda theory.
+	This is useful for dragAndDrop function onto function to find/create function
+	without having to think about stack or internal workings of VM.
+	Example: (S I I) is a lambda that calls its param on itself.
+	A lambda/function is a tuple of at least size 2: [bytecode anyOtherStuff],
+	and bytecode can be designed to use anyOtherStuff any way it likes, such as curried params
+	or such as to contain jpg image bytes with an "image/jpeg" contentType mentioned somewhere inside it,
+	or both, or any possible thing. Its just a place to store things.
+	*/
+	callAndTightenToUnary(2,2,true,false),
 	
 	/** a kind of call */
 	forkNM(null,null,true,false),
