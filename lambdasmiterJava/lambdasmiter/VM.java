@@ -76,7 +76,21 @@ public interface VM{
 	as occamsfuncer has more than just bytecode, it also has a pair forest of curries)
 	since occamsfuncer uses currying instead tuples.
 	*/
-	public Tuple funcall(Tuple tops);
+	public Tuple funcallStack(Tuple tops);
+	
+	/** for things like iota, occamsfuncer, urbitnock, andOr standard lambda theory which uses currying.
+	See Op.callAndTightenToUnary. This is a subset of what funcallStack(Tuple tops) can do.
+	FIXME return null if run out of gas? Or how to signal that?
+	*/
+	public default Number funcallUnary(Number func, Number param){
+		"TODO push func, push param, and use use Op.callAndTightenToUnary,"
+		"pop the didItWork bit returned in place of func, then get return value on stack."" 
+	}
+	
+	/** like funcallUnary but also limits gas. FIXME return null if run out of gas? Or how to signal that? */
+	public default Number funcallUnary(long maxCost, Number func, Number param){
+		TODO
+	}
 	
 	/** empties the VM and refills gas.
 	This is normally called once per video frame of a game (such as 1./60 seconds,

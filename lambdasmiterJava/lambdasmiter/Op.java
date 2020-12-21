@@ -142,8 +142,19 @@ public enum Op{
 	*/
 	callAndTightenToUnary(2,2,true,false),
 	
-	/** a kind of call */
-	forkNM(null,null,true,false),
+	/** a kind of call, that N parallel calls.
+	divides gas-lgas into floor((gas-lowGas)/N) parts, so increases lgas so gas-lgas equals that.
+	May be done using only lsp and hsp, or theres a possible design (todo choose a design) with 4 vars,
+	explained in the comments of Constraint.java around "lspRead <= lspReadwrite <= hsp <= ksp"
+	which is a way of modelling things like opencl ndrange private memory and shared constant memory.
+	Each of these parallel calls can call callForkNM again, such as to compute minimax in a chess game tree/web
+	to some small constant depth, but for GPU optimization it happens just 1 callForkNM deep,
+	so for example if you use GPU optimization on a chess gametree you do that just on the last recursion
+	and in lower recursions its computed as interpreted (cpu computing of the opcodes),
+	or view the last recursion as a neuralnet that estimates the qscore of a chess board setup
+	and compute n of those neuralnet calls in gpu as the innermost callForkNM (N possible board states).
+	*/
+	callForkNM(null,null,true,false),
 	
 	
 	
@@ -163,6 +174,29 @@ public enum Op{
 	*/
 	copyStackToHeap(null,null,false,false),
 	//lsmOpPushFromMidStack, is this the same as lsmOpPushFromMidStack?
+	
+	/** does not create tuple on heap. Like java.lang.System.arraycopy within Number[] stack.
+	Example: Useful for screen blit, etc.
+	*/
+	copyMidStackToMidStack(null,null,false,false),
+	
+	/** (stack top) [valueToCopy fromIndexIncl, toIndexExcl] (lower in stack) ... TODO are those indexes rel to lsp or hsp or what?
+	Does it pop those 3 things?
+	<br><br>
+	Like java.lang.Arrays.fill(array_someRangeOfNumstack, fromIndexIncl, toIndexExcl, val_fromTopOfStack).
+	Example: Useful for filling in cartoony graphics where any curved border around a 2d shape encloses a solid color,
+	which you'd call this once at each point on its left border to paint that color from there to its right border,
+	even if its concave you do it more than once at the same height, like a spiral shape or a circle square or a knot etc.
+	Example: the ocuirect UI system at
+	https://raw.githubusercontent.com/benrayfield/occamsfuncer/master/data/occamsfuncer/pics/DragTree 2020-11-11.png
+	has colored parallelograms to display tree nodes inside eachother recursively.
+	This would allow higher resolution graphics than if you computed each pixel individually.
+	For example a 512x512 or maybe as low as 256x256 graphics would be very fast, and ok for some kinds of simple games,
+	but you might want 4k graphics when doing text editing etc. I dont know how fast it will be,
+	but either way this is a more generally useful thing than graphics, to copy a thing n times into a range on the stack.
+	Its similar to Op.dup except a variable size range and somewhere inside stack instead of pushing one.
+	*/
+	copyOneThingOnTopOfStackNTimesToMidStack(3,null,false,false),
 
 	pair(2,1,false,false),
 	
@@ -175,9 +209,40 @@ public enum Op{
 	//FIXME maybe ops should use the 24 extra bits, other than the 8 bits to choose op type,
 	//to choose how much to pop or push all 0s, instead of having log number of some op types in this enum.
 	
+	/*
 	pop(1,0,false,false),
 	
-	pop4(1,0,false,false),
+	/** pops 0 to (1<<23)-1, depending on the 23 bits just above the low byte in the opcode,
+	which are the same bits used for ip jump offset in jumpIf0.
+	The reason the amount to pop is not on stack is cuz it would make bytecode verifying far more complex
+	for the stack height at which opcode index to depend on stack contents.
+	*
+	popN(null,0,false,false),
+	
+	/** [] -> [0 0 0 0 0]. Similar to popN, the number of 0s to push is in the opcode.
+	The reason the amount to push is not on stack is cuz it would make bytecode verifying far more complex
+	for the stack height at which opcode index to depend on stack contents.
+	*
+	pushNZeros(null,0,false,false),
+	*/
+	
+	/** push or pop N times, the "23 bits just above the low byte in the opcode", as signed int23, hsp += that.
+	The reason the amount to push is not on stack is cuz it would make bytecode verifying far more complex
+	for the stack height at which opcode index to depend on stack contents.
+	Fills with 0s if pop, to allow garbcol.
+	*/
+	pushOrPopN(null,null,false,false),
+	
+	/** [x] -> [x[0] x[1] x[2] x[3] x[4]. Similar to pushNZeros and similar to the *copy* opcodes,
+	except copies it just above stack[hsp]. len(x) doesnt matter. The N, how many to push, is in the opcode.
+	If len(x) < N then it pads with 0s. If len(x) > N then it only uses the first N index in x.
+	(todo choose forward or reverse, or maybe that should be a param too? Or a second opcode?
+	Get the forward/reverse straight in how I write things in other opcodes and comments before deciding that.)
+	*
+	pushNCopy(null,0,false,false),
+	*/
+	
+	/*pop4(1,0,false,false),
 	
 	pop16(1,0,false,false),
 	
@@ -206,6 +271,7 @@ public enum Op{
 	pop256m(1,0,false,false),
 	
 	pop1g(1,0,false,false),
+	*/
 	
 	/** push(peek()) */
 	dup(1,2,false,false),
@@ -241,7 +307,101 @@ public enum Op{
 	
 	min(2,1,false,false),
 	
-	max(2,1,false,false);
+	max(2,1,false,false),
+	
+	uintNand(2,1,false,false),
+	
+	intNand(2,1,false,false),
+	
+	uintShift(2,1,false,false),
+	
+	intShift(2,1,false,false),
+	
+	castToFloat(1,1,false,false),
+	
+	castToInt(1,1,false,false),
+	
+	/** get child by index in tuple, or if its a double then that child is always value 0
+	(todo smite or value is 0 if get value is not within 0..(len(tupleOrDouble)-1)?)
+	*/
+	get(1,1,false,false);
+	
+	//TODO do I want the low few bits in the opcode byte to choose the primitive type of its up to 2 params,
+	//like float*float float+float int*int int+int uint+uint max(int,int) etc?
+	//I dont really need float, but I do need either int or uint cuz thats how to represent bitstrings,
+	//either that or could use 48 bits per double, but 32 bits is more efficient in most cases
+	//like in Int32Array or Uint32Array in javascript.
+	//It could get to be too many opcodes if handling all these combos.
+	//I might want just int, uint, float, and double, all of which fit in double,
+	//and if allow ubyte then could wrap html canvas in a tuple, though could still do that even without that type
+	//if just intAnd it with 0xff but that might be harder to optimize.
+	//Also, floats are much faster in GPU than doubles.
+	//All these ops appear to fit in functions of (double,double)->double, such as floatMul(x,y)->(((float)x)*((float)y)).
+	//I'm not confident in javascript efficiently computing float multiply, even though it has Float32Array,
+	//multiplying 2 of them might cast them to double first then back to float.
+	//Or I could just use doubles in GPU and pay the cost. IO is the bottleneck anyways, which is twice as much IO,
+	//but its much more than 2x as much compute time, but GPUs are normally overpowered in compute power compared to their IO.
+	//So maybe just have double and int and uint?
+	//
+	
+	/*
+	Yes, thats what happened, browserJs (in firefox) gets the exact same answer as java if java casts pi to float
+	then casts it to double then multiplies it by itself, but in Float32Array.
+	So it appears js doesnt have float ops other than cast. 
+	
+	
+	x = new Float32Array(5);
+	Float32Array(5) [ 0, 0, 0, 0, 0 ]
+	
+	pi
+	Uncaught ReferenceError: pi is not defined
+	    <anonymous> debugger eval code:1
+	debugger eval code:1:1
+	pi = 3.14159265358979323846
+	3.141592653589793
+	pii = pi*pi
+	9.869604401089358
+	x[0] = pi
+	3.141592653589793
+	x[1] = pi
+	3.141592653589793
+	x[0]*x[1]
+	9.869604950382893
+	x[0]*x[1]-pii
+	5.492935351014694e-7
+	y = new Float64Array[7];
+	Uncaught TypeError: Float64Array[7] is not a constructor
+	    <anonymous> debugger eval code:1
+	debugger eval code:1:5
+	y = new Float64Array(7);
+	Float64Array(7) [ 0, 0, 0, 0, 0, 0, 0 ]
+	
+	y[0] = pi
+	3.141592653589793
+	y[1] = pi
+	3.141592653589793
+	y[0]*y[1]-pii
+	0
+	x[0]*x[1]-9.869605
+	-4.961710686757215e-8
+	x[0]*x[1]
+	9.869604950382893
+	x[0]*x[1]-9.869604950382893
+	0
+	*/
+	
+	//TODO Include both double and float math, even though it will still be stored as doubles in Number[] and have to be cast,
+	//it will allow GPU calculation of floats, where thats hardware optimized, and where its not hardware optimized,
+	//emulate it using ints which might be 20 times slower but at least it will happen,
+	//which will motivate whoever makes the code (or automatic generating of code) to call the ops that are faster.
+	//Its just got to have float32 for GPU efficiency, or else people wont want to use it.
+	
+	//js Math.imul(1000000,1000000) returns -727379968, same as multiplying those ints in java.
+	
+	
+	
+	
+	//uintNor(2,1,false,false),
 	
 	//TODO truncateIntoMinAndMax isInfiniteOrNan etc
 	
@@ -302,11 +462,14 @@ public enum Op{
 	*/
 	public final boolean isDirty;
 	
+	public final byte ordinalByte;
+	
 	Op(Integer ins, Integer outs, boolean isTuring, boolean isDirty){
 		this.ins = ins;
 		this.outs = outs;
 		this.isTuring = isTuring;
 		this.isDirty = isDirty;
+		this.ordinalByte = (byte)this.ordinal();
 	}
 	
 }

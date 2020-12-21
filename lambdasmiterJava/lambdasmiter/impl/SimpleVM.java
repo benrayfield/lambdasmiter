@@ -99,7 +99,7 @@ public strictfp class SimpleVM implements VM{
 	*/
 	protected boolean dirty = false;
 	
-	private static final Op[] ops;
+	protected static final Op[] ops;
 	static{
 		ops = Op.values();
 		if(ops.length > 256) throw new RuntimeException(
@@ -201,6 +201,7 @@ public strictfp class SimpleVM implements VM{
 		//gas--; //"FIXME smite/backOut if gas would go below lowGas, and different ops take different amounts of gas."
 		double opcode = cache_bytecode.get(ip).doubleValue();
 		int addToIp = 1;
+		boolean smite = false;
 		if(opcode >= 0){ //push that literal double. For negative literal, next opcode should be NEG.
 			pushD(opcode);
 		}else{ //normal opcode
@@ -221,6 +222,12 @@ public strictfp class SimpleVM implements VM{
 				if(peekD()==0){
 					addToIp = (((int)opcode)<<1)>>9; //int23
 				}
+			case jumpSwitch:
+				//For possible future expansion, see comment of Op.jumpSwitch.
+				//For now, smite so when the behavior changes in a future version, it appears that it just got
+				//more efficient like it did not run out of gas so was not smited. As long as it
+				//never returns 2 different things for the same input while !isDirty, its valid lambda math.
+				smite = true;
 			break;case neg: //NEG(x)
 				pushD(-popD());
 			break;case mul: //multiply(x,y)
@@ -280,62 +287,58 @@ public strictfp class SimpleVM implements VM{
 				//noop
 				//throw new RuntimeException("TODO optimize by doing infloop or noop or return constant from here");
 			break;case dup:
-				if(1<2) throw new RuntimeException("TODO");
-			break;case forkNM:
+				push(peek());
+			break;case callForkNM:
 				if(1<2) throw new RuntimeException("TODO");
 			break;case nandOf2Bits:
-				if(1<2) throw new RuntimeException("TODO");
+				pushD(1-popZ()*popZ());
 			break;case nodeType:
 				if(1<2) throw new RuntimeException("TODO");
 			break;case noop:
 				if(1<2) throw new RuntimeException("TODO");
 			break;case pair:
+				push(pair(pop(),pop()));
 				if(1<2) throw new RuntimeException("TODO");
-			break;case pop:
-				if(1<2) throw new RuntimeException("TODO");
-			break;case pop16:
-				if(1<2) throw new RuntimeException("TODO");
-			break;case pop16k:
-				if(1<2) throw new RuntimeException("TODO");
-			break;case pop16m:
-				if(1<2) throw new RuntimeException("TODO");
-			break;case pop1g:
-				if(1<2) throw new RuntimeException("TODO");
-			break;case pop1k:
-				if(1<2) throw new RuntimeException("TODO");
-			break;case pop1m:
-				if(1<2) throw new RuntimeException("TODO");
-			break;case pop256:
-				if(1<2) throw new RuntimeException("TODO");
-			break;case pop256k:
-				if(1<2) throw new RuntimeException("TODO");
-			break;case pop256m:
-				if(1<2) throw new RuntimeException("TODO");
-			break;case pop4:
-				if(1<2) throw new RuntimeException("TODO");
-			break;case pop4k:
-				if(1<2) throw new RuntimeException("TODO");
-			break;case pop4m:
-				if(1<2) throw new RuntimeException("TODO");
-			break;case pop64:
-				if(1<2) throw new RuntimeException("TODO");
-			break;case pop64k:
-				if(1<2) throw new RuntimeException("TODO");
-			break;case pop64m:
-				if(1<2) throw new RuntimeException("TODO");
+			/*break;case pop:
+				pop();
+			break;case popN:
+				int n = getRelJump(opcode);
+				//while(n-- > 0) pop();
+				Arrays.fill(numstack, hsp-n, hsp, 0.);
+			break;case pushNZeros:
+			*/
+			break;case pushOrPopN:
+				//TODO optimize. shouldnt have to call Arrays.fill to just pop1 pop3 etc. Should have opcodes for those small ones.
+				int n = getRelJump(opcode);
+				if(n < 0) Arrays.fill(numstack, hsp+n, hsp, 0.); //popN, set to 0s to allow garbcol. fixme off by 1?
+				else Arrays.fill(numstack, hsp, hsp+n, 0.); //pushN n 0s. fixme off by 1?
+				hsp += n;
 			break;case pushIsVerifiedOrNot:
-				if(1<2) throw new RuntimeException("TODO");
+				pushZ(isFunctionContainingValidBytecode(peek())); //TODO optimize. could do this in less calls.
 			break;case ret:
 				if(1<2) throw new RuntimeException("TODO");
 			break;case smite:
-				if(1<2) throw new RuntimeException("TODO");
+				//smite();
+				smite = true;
 			break;case tupleLen:
-				if(1<2) throw new RuntimeException("TODO");
+				Number num = peek();
+				pushD((num instanceof Tuple) ? ((Tuple)num).size() : 1); //FIXME is tupleLen of a double 1? Or should it be 0?
 			}
 		}
 		ip += addToIp;
+		//TODO I'm undecided if will do it by throw this or by recursive if/else,
+		//but either way it will be seen on numstack as a function is replaced by didItWork which is 0 if smite vs 1 if worked.
+		//Also, should nextState() always return boolean, or should it also be able to throw?
+		//If throw, theres often still more work to do, just lower on stack.
+		"FIXME if(smite) throw throwWhenSmite;"
 		return hasWork();
 	}
+	
+	protected static final RuntimeException throwWhenSmite = new RuntimeException("smite");
+	
+	/*protected void smite(){
+		throw new RuntimeException("TODO");
+	}*/
 	
 	/** anything else just does some default behavior, maybe return 0 or smite (todo choose design),
 	so every Number is a valid function, but not every Number is a nontrivial function (runs bytecode).
@@ -352,16 +355,36 @@ public strictfp class SimpleVM implements VM{
 		numstack[hsp++] = d;
 	}
 	
+	protected void pushZ(boolean z){
+		pushD(z ? 1. : 0.)
+	}
+	
+	protected double popZ(){
+		return popD()==0 ? 0. : 1.;
+	}
+	
 	protected double popD(){
-		return numstack[hsp--].doubleValue();
+		double ret = numstack[hsp].doubleValue();
+		numstack[hsp--] = 0.; //allow garbcol, which could be huge if its a tuple, but this is wasted if its a double.
+		return ret;
 	}
 	
 	protected double peekD(){
 		return numstack[hsp].doubleValue();
 	}
 	
+	protected void push(Number n){
+		numstack[hsp++] = n;
+	}
+	
+	protected Number peek(){
+		return numstack[hsp];
+	}
+	
 	protected Number pop(){
-		return numstack[hsp--];
+		Number ret = numstack[hsp];
+		numstack[hsp--] = 0.; //allow garbcol, which could be huge if its a tuple, but this is wasted if its a double.
+		return ret;
 	}
 	
 	public final Tuple emptyTuple = tuple();

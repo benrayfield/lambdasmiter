@@ -49,4 +49,30 @@ public abstract class Tuple extends Number implements List<Number>, UnaryOperato
 	
 	public abstract boolean isValidBytecode();
 	
+	/** An alternative way to do the same thing as a loop of calling VM.nextState(), thats likely more efficient.
+	Returns amount of gas to give back to caller's gasMinusLgas.
+	This tuple is bytecode evaling itself on VM. The Number[] numstack is VM's numstack.
+	<br><br>
+	Instead of keeping a Constraint stack, ip stack, gas, etc, all costing expensive reads and writes
+	at every nextState, use java stack (or python stack or wherever this is ported to)
+	to loop over self's list of double opcodes and modify VM.numstack etc.
+	This should be a few times faster than doing it in VM.nextState...
+	Especially that this can call other Tuple.evalSelfOn(VM, ...whatotherparams...).
+	For example, a Tuple optimized for containing only bytecode could use a double[] instead of a Number
+	which would be maybe 1.1-3 times faster than Number[]? But the main advantage is using JVM (or python VM's?? etc)
+	stack instead of storing those in instance vars in an object (unsure how python optimizes that kind of thing).
+	<br><br>
+	Basically this starts a local int ip var as 0 and increments vs jumps it based on the double observed at that index,
+	and when it reaches another Tuple to call as a function, it pushes it onto stack and recurses into it
+	instead of calling VM.nextState many times, and thats just the interpreted mode,
+	which should be fast enough for very low resolution video, which can be further optimized
+	in some cases could call GPU, acyclicFlow, andOr other optimizations.
+	Storing all these java function params on a "simulated stack" would be slower.
+	*/
+	public abstract long evalSelfOn(VM vm, Number[] numstack, int lsp, int hsp, long gasMinusLgas, boolean allowDirty, boolean isDirty);
+	//public abstract void evalSelfOn(VM vm, int lsp, int hsp, long lgas, long gas, boolean allowDirty);
+	//TODO still need direct access to Number[] numstack.
+	returns amount of unused gas to give back to caller.
+	FIXME how to return isDirty or not? In VM? In sign bit of the returned long?
+	
 }

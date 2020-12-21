@@ -15,7 +15,7 @@ only every callAndTighten[
 ]
 <br><br>
 private int metastackIndexWhereTightenedToNotAllowDirty; //private final boolean[] allowdirtyornotStack;
-Dont forget about Op.forkNM, which divides gas-lowGas into floor((gas-lowGas)/N) parts,
+Dont forget about Op.callForkNM, which divides gas-lowGas into floor((gas-lowGas)/N) parts,
 each of which have their own "multiverse branch" of the stack they can in turing complete ways continue differently,
 which I could easily represent as a java class of those few vars and a pointer to lower metastack (instance of same class)
 so N linkedlists whose cdr is all that same lower on the stack. But I dont want to alloc java object
@@ -106,7 +106,7 @@ public final class Constraint{
 	that represents all parallel forks if those forks are all doing some very
 	similar calculation aligned on a regular grid of memory.
 	*/
-	public final Constraint prev;
+	public final Constraint down;
 	
 	/** starts true at bottom of stack, and at any point lower on stack can choose to become false (pure determinism)
 	there and everywhere deeper on stack, until return from that, and when cross that border on stack,
@@ -140,14 +140,14 @@ public final class Constraint{
 	and (todo choose a design, or only for use in forkMN) might also be these 2 more vars:
 	lspRead <= lspReadwrite <= hsp <= ksp (fixme might be offby1 etc).
 	*/
-	public final int lsp, hsp;
+	public final int lsp, hspWhenConstraintWasPushed;
 	
-	public Constraint(Constraint prev, boolean allowDirty, long lgas, int lsp, int hsp){
-		this.prev = prev;
+	public Constraint(Constraint down, boolean allowDirty, long lgas, int lsp, int hsp){
+		this.down = down;
 		this.allowDirty = allowDirty;
 		this.lgas = lgas;
 		this.lsp = lsp;
-		this.hsp = hsp;
+		this.hspWhenConstraintWasPushed = hsp;
 	}
 
 }

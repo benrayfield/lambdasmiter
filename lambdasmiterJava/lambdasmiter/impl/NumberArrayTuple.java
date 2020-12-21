@@ -10,6 +10,7 @@ import java.util.function.UnaryOperator;
 
 import javax.tools.Tool;
 
+import lambdasmiter.Op;
 import lambdasmiter.Tuple;
 import lambdasmiter.VM;
 
@@ -259,7 +260,42 @@ public final class NumberArrayTuple extends Tuple{
 		throw new RuntimeException("TODO");
 	}
 	
-	
+	public long evalSelfOn(VM Vm, Number[] Numstack, int Lsp, int Hsp, long GasMinusLgas, boolean AllowDirty, boolean isDirty){
+		if(!isValidBytecode()) throw new RuntimeException("First, every Number can be called on every Number and is a function. TODO whats that default, non-throwing behavior to do, such as return 0.0 or smite or something... when a function of invalid bytecode (which I am not being used as such a function but I am its [0]) is called?");
+		int ip = 0;
+		int hsp = Hsp;
+		while(--GasMinusLgas > 0){ //FIXME return 0L if run out of gas. Use 0L to mean SMITE, and if at least 1L is left then it worked.
+			double opcode = (double)tuple[ip];
+			if(opcode >= 0){
+				Numstack[hsp++] = opcode;
+			}else{
+				Op op = SimpleVM.ops[(byte)opcode];
+				switch(op){
+				case callWithoutTighten:
+					check isValid*functioncontaining*bytecode... then...
+					put it on stack
+					then subtract from GasMinusLgas however much allow it to use (since its "withoutTighten" its
+						all of it, minus maybe just enough to SMITE self in case it runs out)
+					then call Tuple.evalSelfOn recursively.
+					Then whatever it returns, check if its 0L, and if so it was SMITED,
+					then either way add what it returns into GasMinusLgas which is how much gas it didnt use of what was given.
+					throw new RuntimeException("TODO");
+				break;case jumpIf0:
+					throw new RuntimeException("TODO");
+				break;case max:
+					Numstack[hsp-1] = Math.max(Numstack[hsp-1].doubleValue(),Numstack[hsp].doubleValue());
+					Numstack[hsp--] = 0.; //garbcol in case its a tuple
+				break;case mul:
+					Numstack[hsp-1] = Numstack[hsp-1].doubleValue()*Numstack[hsp].doubleValue();
+					Numstack[hsp--] = 0.; //garbcol in case its a tuple
+				}
+			}
+			TODO
+		}
+		return GasMinusLgas;
+	}
+	TODO consider splitting numstack and every tuple, both into a Tuple[] and double[]???? for efficiency.
+	Makes things harder to think about, harder to organize, but would be faster.
 
 }
 
@@ -290,7 +326,6 @@ public final class Node{
 	//TODO equals and hashCode. equals by secureHash.
 
 }
-
 
 package lambdasmiter;
 
