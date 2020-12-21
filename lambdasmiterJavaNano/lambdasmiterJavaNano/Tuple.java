@@ -179,21 +179,26 @@ public final class Tuple extends Number implements List<Number>, UnaryOperator<T
 					Then whatever it returns, check if its 0L, and if so it was SMITED,
 					then either way add what it returns into GasMinusLgas which is how much gas it didnt use of what was given.
 					throw new RuntimeException("TODO");
+					TODO since Numstack is now a static var, can create push, pushD, pop, popD, peek, peekD etc funcs, instead of duplicating that here.
 				break;case jumpIf0:
 					throw new RuntimeException("TODO");
+					TODO since Numstack is now a static var, can create push, pushD, pop, popD, peek, peekD etc funcs, instead of duplicating that here.
 				break;case max:
 					Numstack[hsp-1] = Math.max(Numstack[hsp-1].doubleValue(),Numstack[hsp].doubleValue());
 					Numstack[hsp--] = 0.; //garbcol in case its a tuple
 					ip++;
+					TODO since Numstack is now a static var, can create push, pushD, pop, popD, peek, peekD etc funcs, instead of duplicating that here.
 				break;case mul:
 					Numstack[hsp-1] = Numstack[hsp-1].doubleValue()*Numstack[hsp].doubleValue();
 					Numstack[hsp--] = 0.; //garbcol in case its a tuple
 					ip++;
+					TODO since Numstack is now a static var, can create push, pushD, pop, popD, peek, peekD etc funcs, instead of duplicating that here.
 				default:
 					//opcodes 0..127 are nonnegative opcode. push that literal. To push negative literal nl, 2 opcodes: -nl then opNeg.
 					//FIXME make sure exactly the other 128 of them are in the switch, and any not defined in the spec yet, do SMITE.
 					Numstack[hsp++] = opcode;
 					ip++;
+					TODO since Numstack is now a static var, can create push, pushD, pop, popD, peek, peekD etc funcs, instead of duplicating that here.
 			}
 		}
 		return GasMinusLgas;
@@ -204,6 +209,14 @@ public final class Tuple extends Number implements List<Number>, UnaryOperator<T
 	TODO use java ForkJoinPool, java.util.Stream, DoubleStream, etc?
 		How can i call this in parallel to implement Op.callForkNM?
 		thats os threads andor greenthreads. of course OpenclUtil.callOpencl and Opencl.callOpenclDependnet are optimizations.
-	*/
+	*/ 
+	
+	public static void main(){
+		TODO inline a JPanel that displays a BufferedImage, observes mouse movements, mouse wheel, etc,
+		whose state is a Number, and which gives back a Number for UI events, etc. Put it on screen in a JFrame,
+		and have a basic File and dir storage of RandomAccessFile or something like that,
+		for longterm storage and turning the system on and off, to start actually using it,
+		and use the system to build the system asap.
+	}
 
 }
